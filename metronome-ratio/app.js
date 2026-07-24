@@ -87,10 +87,10 @@ function applyMode(mode, fromInit = false) {
   $modeStd.setAttribute('aria-pressed', String(!isBurst));
   $modeBurst.setAttribute('aria-pressed', String(isBurst));
 
-  // Burst-only UI
-  $phaseIndicator.hidden = !isBurst;
-  $barCounter.hidden     = !isBurst;
-  $barsRow.hidden        = !isBurst;
+  // Preserve space in both modes; just hide content in standard to avoid layout shift.
+  // $barsRow is always visible — it pre-configures burst parameters while in standard.
+  $phaseIndicator.style.visibility = isBurst ? '' : 'hidden';
+  $barCounter.style.visibility     = isBurst ? '' : 'hidden';
 }
 
 // ─── Beat dots ───────────────────────────────────────────────
@@ -206,13 +206,53 @@ function scheduleBeep(time, type) {
 }
 
 // ─── Beat callback ───────────────────────────────────────────
+//
+// The first bar is always a silent count-in: clicks fire on main beats
+// but phase logic hasn't started. Actual playback begins on the beat
+// immediately after the count-in bar completes.
+//
 function onBeat(beatTime, beatIndex) {
-  const beatsPerBar = BEATS_PER_BAR[settings.timeSig];
-  const subdivMult  = SUBDIV_MULT[settings.subdivision] ?? 1;
-  const subPerBar   = beatsPerBar * subdivMult;
+  const beatsPerBar  = BEATS_PER_BAR[settings.timeSig];
+  const subdivMult   = SUBDIV_MULT[settings.subdivision] ?? 1;
+  const subPerBar    = beatsPerBar * subdivMult;
+  const countInSubs  = subPerBar; // one bar of count-in
+
+  // ── Count-in ─────────────────────────────────────────────────
+  if (beatIndex < countInSubs) {
+    const subdivInBeat = beatIndex % subdivMult;
+    const beatInBar    = Math.floor(beatIndex / subdivMult);
+    const isMainBeat   = subdivInBeat === 0;
+    if (isMainBeat) {
+      scheduleClick(beatTime, beatInBar === 0 ? 'accent' : 'beat');
+      const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+      setTimeout(() => {
+        $flash.classList.remove('flash-accent', 'flash-beat');
+        void $flash.offsetWidth;
+        $flash.classList.add(beatInBar === 0 ? 'flash-accent' : 'flash-beat');
+        activateDot(beatInBar);
+        // Show countdown in bar counter (visible in both modes during count-in)
+        $barCounter.style.visibility = '';
+        $barCounter.textContent = `${beatInBar + 1} of ${beatsPerBar}`;
+      }, msAhead);
+    }
+    return;
+  }
+
+  // Count-in just ended on this beat — restore bar counter visibility per mode
+  if (beatIndex === countInSubs) {
+    const msFirst = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+    setTimeout(() => {
+      $barCounter.style.visibility = (settings.mode === 'burst') ? '' : 'hidden';
+      $barCounter.textContent = '';
+      resetDots();
+    }, msFirst);
+  }
+
+  // ── Actual playback — offset by count-in ─────────────────────
+  const idx = beatIndex - countInSubs;
 
   if (settings.mode === 'standard') {
-    const subInBar     = beatIndex % subPerBar;
+    const subInBar     = idx % subPerBar;
     const beatInBar    = Math.floor(subInBar / subdivMult);
     const subdivInBeat = subInBar % subdivMult;
     const isMainBeat   = subdivInBeat === 0;
@@ -255,7 +295,7 @@ function onBeat(beatTime, beatIndex) {
   //
   const subPerPhase  = settings.barsPerPhase * subPerBar;
   const cycleLen     = 2 * subPerPhase;
-  const subInCycle   = beatIndex % cycleLen;
+  const subInCycle   = idx % cycleLen;
   const isBase       = subInCycle < subPerPhase;
   const subInPhase   = isBase ? subInCycle : subInCycle - subPerPhase;
   const barInPhase   = Math.floor(subInPhase / subPerBar);
