@@ -4,36 +4,49 @@ import { loadSettings, saveSettings } from '../shared/storage.js';
 // ─── Constants ───────────────────────────────────────────────
 const BEATS_PER_BAR = { '4/4': 4, '3/4': 3, '6/8': 6 };
 const STORAGE_KEY   = 'metronome';
-const DEFAULTS      = { bpm: 120, timeSig: '4/4', sound: 'wood', volume: 0.8 };
+const DEFAULTS      = {
+  bpm:          120,
+  timeSig:      '4/4',
+  sound:        'wood',
+  volume:       0.8,
+  barsPerPhase: 2,
+  ratio:        2,    // not exposed in UI yet; change here to try 1.5x, 3x, etc.
+};
 
 // ─── State ───────────────────────────────────────────────────
-const settings  = loadSettings(STORAGE_KEY, DEFAULTS);
-let audioCtx    = null;
-let masterGain  = null;
-let scheduler   = null;
-let isRunning   = false;
-let tapTimes    = [];
-let tapResetId  = null;
-let beatDotEls  = [];
+const settings       = loadSettings(STORAGE_KEY, DEFAULTS);
+let audioCtx         = null;
+let masterGain       = null;
+let scheduler        = null;
+let isRunning        = false;
+let currentPhaseIsBase = true;  // tracks which phase the scheduler last visited
+let tapTimes         = [];
+let tapResetId       = null;
+let beatDotEls       = [];
 
 // ─── DOM ─────────────────────────────────────────────────────
-const $bpmInput  = document.getElementById('bpm-input');
-const $bpmDec    = document.getElementById('bpm-dec');
-const $bpmInc    = document.getElementById('bpm-inc');
-const $timeSig   = document.getElementById('time-sig');
-const $sound     = document.getElementById('sound-select');
-const $volume    = document.getElementById('volume');
-const $tapBtn    = document.getElementById('tap-btn');
-const $startStop = document.getElementById('start-stop-btn');
-const $flash     = document.getElementById('beat-flash');
-const $dotsEl    = document.getElementById('beat-dots');
+const $bpmInput    = document.getElementById('bpm-input');
+const $bpmDec      = document.getElementById('bpm-dec');
+const $bpmInc      = document.getElementById('bpm-inc');
+const $timeSig     = document.getElementById('time-sig');
+const $sound       = document.getElementById('sound-select');
+const $volume      = document.getElementById('volume');
+const $barsSelect  = document.getElementById('bars-select');
+const $tapBtn      = document.getElementById('tap-btn');
+const $startStop   = document.getElementById('start-stop-btn');
+const $flash       = document.getElementById('beat-flash');
+const $dotsEl      = document.getElementById('beat-dots');
+const $phaseBase   = document.getElementById('phase-base');
+const $phaseFast   = document.getElementById('phase-fast');
+const $barCounter  = document.getElementById('bar-counter');
 
 // ─── Boot ────────────────────────────────────────────────────
 function init() {
-  $bpmInput.value = settings.bpm;
-  $timeSig.value  = settings.timeSig;
-  $sound.value    = settings.sound;
-  $volume.value   = settings.volume;
+  $bpmInput.value    = settings.bpm;
+  $timeSig.value     = settings.timeSig;
+  $sound.value       = settings.sound;
+  $volume.value      = settings.volume;
+  $barsSelect.value  = settings.barsPerPhase;
   renderBeatDots();
 }
 
@@ -108,28 +121,69 @@ function scheduleBeep(time, isAccent) {
   osc.stop(time + 0.12);
 }
 
-// ─── Beat callback (fires during lookahead, ahead of beat) ───
+// ─── Beat callback ───────────────────────────────────────────
+//
+// Phase cycle structure (beatIndex counts from 0):
+//
+//   beatsPerPhase = barsPerPhase × beatsPerBar
+//   cycleLen      = 2 × beatsPerPhase  (base phase + fast phase)
+//   beatInCycle   = beatIndex % cycleLen
+//
+//   [0 … beatsPerPhase-1]   → base phase (at settings.bpm)
+//   [beatsPerPhase … cycleLen-1] → fast phase (at settings.bpm × ratio)
+//
+// BPM switch: called on the LAST beat of each phase so that
+// `_nextBeatTime += secondsPerBeat()` inside the scheduler uses the
+// new BPM for the very first beat of the incoming phase.
+//
 function onBeat(beatTime, beatIndex) {
-  const beatsPerBar = BEATS_PER_BAR[settings.timeSig];
-  const thisBeat    = beatIndex % beatsPerBar;
-  const isAccent    = thisBeat === 0;
+  const beatsPerBar   = BEATS_PER_BAR[settings.timeSig];
+  const beatsPerPhase = settings.barsPerPhase * beatsPerBar;
+  const cycleLen      = 2 * beatsPerPhase;
+  const beatInCycle   = beatIndex % cycleLen;
+  const isBase        = beatInCycle < beatsPerPhase;
+  const beatInPhase   = isBase ? beatInCycle : beatInCycle - beatsPerPhase;
+  const barInPhase    = Math.floor(beatInPhase / beatsPerBar);
+  const thisBeatInBar = beatInPhase % beatsPerBar;
+  const isAccent      = thisBeatInBar === 0;
+
+  currentPhaseIsBase = isBase;
+
+  // Switch tempo on the last beat of each phase.
+  if (beatInPhase === beatsPerPhase - 1) {
+    scheduler.setBPM(isBase ? settings.bpm * settings.ratio : settings.bpm);
+  }
 
   scheduleClick(beatTime, isAccent);
 
-  // Schedule visuals to fire when the beat actually sounds
+  // Visual update fires when the beat actually sounds, not during lookahead.
   const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
   setTimeout(() => {
-    // Restart animation even if the same class is already present
     $flash.classList.remove('flash-accent', 'flash-beat');
     void $flash.offsetWidth;
     $flash.classList.add(isAccent ? 'flash-accent' : 'flash-beat');
-    activateDot(thisBeat);
+    activateDot(thisBeatInBar);
+    updatePhaseUI(isBase, barInPhase + 1, settings.barsPerPhase);
   }, msAhead);
+}
+
+// ─── Phase UI ────────────────────────────────────────────────
+function updatePhaseUI(isBase, barNum, totalBars) {
+  $phaseBase.classList.toggle('active-chip', isBase);
+  $phaseFast.classList.toggle('active-chip', !isBase);
+  $barCounter.textContent = `Bar ${barNum} of ${totalBars}`;
+}
+
+function resetPhaseUI() {
+  $phaseBase.classList.remove('active-chip');
+  $phaseFast.classList.remove('active-chip');
+  $barCounter.textContent = '';
 }
 
 // ─── Transport ───────────────────────────────────────────────
 function start() {
   ensureAudio();
+  currentPhaseIsBase = true;
   scheduler = new BeatScheduler(audioCtx, onBeat);
   scheduler.start(settings.bpm);
   isRunning = true;
@@ -140,8 +194,10 @@ function stop() {
   scheduler?.stop();
   scheduler = null;
   isRunning = false;
+  currentPhaseIsBase = true;
   syncTransportUI();
   resetDots();
+  resetPhaseUI();
   $flash.classList.remove('flash-accent', 'flash-beat');
 }
 
@@ -152,11 +208,15 @@ function syncTransportUI() {
 }
 
 // ─── BPM ─────────────────────────────────────────────────────
+// When changing BPM mid-playback, apply the correct tempo for whichever
+// phase is currently active so the scheduler doesn't jump to the wrong speed.
 function setBPM(bpm) {
-  const v = Math.max(20, Math.min(300, Math.round(bpm)));
-  settings.bpm    = v;
+  const v        = Math.max(20, Math.min(300, Math.round(bpm)));
+  settings.bpm   = v;
   $bpmInput.value = v;
-  scheduler?.setBPM(v);
+  if (scheduler) {
+    scheduler.setBPM(currentPhaseIsBase ? v : v * settings.ratio);
+  }
   saveSettings(STORAGE_KEY, settings);
 }
 
@@ -174,15 +234,14 @@ function handleTap() {
     setBPM(Math.round(60000 / (total / (tapTimes.length - 1))));
   }
 
-  // Clear history if user pauses > 3 s between taps
   tapResetId = setTimeout(() => { tapTimes = []; }, 3000);
 }
 
-// ─── Hold-to-repeat for ± buttons ────────────────────────────
+// ─── Hold-to-repeat ──────────────────────────────────────────
 function holdRepeat(el, fn) {
   let hold = null, repeat = null;
   el.addEventListener('pointerdown', e => {
-    e.preventDefault(); // suppress the subsequent click event
+    e.preventDefault();
     fn();
     hold = setTimeout(() => { repeat = setInterval(fn, 80); }, 400);
   });
@@ -192,7 +251,7 @@ function holdRepeat(el, fn) {
   el.addEventListener('pointercancel', clear);
 }
 
-// ─── Event listeners ─────────────────────────────────────────
+// ─── Events ──────────────────────────────────────────────────
 holdRepeat($bpmDec, () => setBPM(settings.bpm - 1));
 holdRepeat($bpmInc, () => setBPM(settings.bpm + 1));
 
@@ -200,12 +259,17 @@ $bpmInput.addEventListener('input', () => {
   const v = parseInt($bpmInput.value, 10);
   if (!isNaN(v) && v >= 20 && v <= 300) {
     settings.bpm = v;
-    scheduler?.setBPM(v);
+    if (scheduler) scheduler.setBPM(currentPhaseIsBase ? v : v * settings.ratio);
     saveSettings(STORAGE_KEY, settings);
   }
 });
 $bpmInput.addEventListener('blur', () => {
   setBPM(parseInt($bpmInput.value, 10) || settings.bpm);
+});
+
+$barsSelect.addEventListener('change', () => {
+  settings.barsPerPhase = parseInt($barsSelect.value, 10);
+  saveSettings(STORAGE_KEY, settings);
 });
 
 $timeSig.addEventListener('change', () => {
@@ -231,7 +295,6 @@ $startStop.addEventListener('click', () => {
   isRunning ? stop() : start();
 });
 
-// Spacebar toggles transport when focus is not in an input
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && e.target === document.body) {
     e.preventDefault();

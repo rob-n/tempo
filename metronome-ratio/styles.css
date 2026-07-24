@@ -98,6 +98,37 @@ body {
 .beat-dot.active        { background: rgba(245,158,11,0.55); }
 .beat-dot.active-accent { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); transform: scale(1.35); }
 
+/* ─── Phase indicator ───────────────────────────────────── */
+.phase-indicator {
+  display: flex;
+  gap: 8px;
+}
+
+.phase-chip {
+  padding: 6px 18px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  transition: background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
+}
+
+.phase-chip.active-chip {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0d0d0f;
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.bar-counter {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  min-height: 18px;
+}
+
 /* ─── BPM ───────────────────────────────────────────────── */
 .bpm-section {
   display: flex;

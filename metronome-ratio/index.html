@@ -17,6 +17,11 @@
     <section class="visualizer">
       <div class="beat-flash" id="beat-flash"></div>
       <div class="beat-dots" id="beat-dots"></div>
+      <div class="phase-indicator">
+        <div class="phase-chip" id="phase-base">BASE</div>
+        <div class="phase-chip" id="phase-fast">FAST ×2</div>
+      </div>
+      <div class="bar-counter" id="bar-counter"></div>
     </section>
 
     <section class="bpm-section">
@@ -40,6 +45,19 @@
     <button class="tap-btn" id="tap-btn">Tap Tempo</button>
 
     <section class="sound-controls">
+      <div class="control-row">
+        <label class="control-label" for="bars-select">Bars</label>
+        <select class="control-select" id="bars-select">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
+      </div>
       <div class="control-row">
         <label class="control-label" for="time-sig">Time</label>
         <select class="control-select" id="time-sig">
