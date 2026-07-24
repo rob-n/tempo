@@ -393,7 +393,10 @@ function start() {
   ensureAudio();
   currentPhaseIsBase = true;
   scheduler = new BeatScheduler(audioCtx, onBeat);
-  scheduler.start(schedulerBPM(true));
+  // Burst count-in runs at full target BPM; the phase logic switches to bpm÷ratio at idx=0.
+  const mult = SUBDIV_MULT[settings.subdivision] ?? 1;
+  const countInBPM = settings.mode === 'burst' ? settings.bpm * mult : schedulerBPM(true);
+  scheduler.start(countInBPM);
   isRunning = true;
   startTimer();
   syncTransportUI();
