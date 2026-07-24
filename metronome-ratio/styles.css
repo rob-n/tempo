@@ -299,6 +299,46 @@ body {
   border: none;
 }
 
+/* ─── Expander ──────────────────────────────────────────── */
+.expander-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.expander-btn:active { background: var(--border); }
+
+.expander-icon {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 18px;
+  line-height: 1;
+}
+.expander-btn[aria-expanded="true"] .expander-icon {
+  transform: rotate(90deg);
+}
+
+.expander-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease-out;
+}
+/* When not hidden, max-height is driven by JS to animate open/close */
+.expander-body:not([hidden]) {
+  /* hidden attr removed by JS; max-height set inline */
+}
+
 /* ─── Start / Stop ──────────────────────────────────────── */
 .start-stop-btn {
   width: 100%;

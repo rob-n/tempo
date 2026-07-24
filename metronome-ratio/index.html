@@ -80,22 +80,44 @@
         </select>
       </div>
       <div class="control-row">
-        <label class="control-label" for="sub-vol-select">Subs</label>
-        <select class="control-select" id="sub-vol-select">
-          <option value="full">Full</option>
-          <option value="soft">Soft</option>
+        <label class="control-label" for="stop-after">Stop</label>
+        <select class="control-select" id="stop-after">
+          <option value="0">∞ Off</option>
+          <option value="1">1 min</option>
+          <option value="2">2 min</option>
+          <option value="3">3 min</option>
+          <option value="5">5 min</option>
+          <option value="10">10 min</option>
+          <option value="15">15 min</option>
+          <option value="20">20 min</option>
+          <option value="30">30 min</option>
         </select>
       </div>
-      <div class="control-row">
-        <label class="control-label" for="sound-select">Sound</label>
-        <select class="control-select" id="sound-select">
-          <option value="wood">Wood</option>
-          <option value="beep">Beep</option>
-        </select>
-      </div>
-      <div class="control-row">
-        <label class="control-label" for="volume">Volume</label>
-        <input class="volume-slider" id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
+
+      <!-- Sound settings expander -->
+      <button class="expander-btn" id="expander-btn" aria-expanded="false" aria-controls="expander-body">
+        <span>Sound settings</span>
+        <span class="expander-icon" aria-hidden="true">›</span>
+      </button>
+      <div class="expander-body" id="expander-body" hidden>
+        <div class="control-row">
+          <label class="control-label" for="sub-vol-select">Subs</label>
+          <select class="control-select" id="sub-vol-select">
+            <option value="full">Full</option>
+            <option value="soft">Soft</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label class="control-label" for="sound-select">Sound</label>
+          <select class="control-select" id="sound-select">
+            <option value="wood">Wood</option>
+            <option value="beep">Beep</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label class="control-label" for="volume">Volume</label>
+          <input class="volume-slider" id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
+        </div>
       </div>
     </section>
 

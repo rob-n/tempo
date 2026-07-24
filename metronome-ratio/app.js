@@ -10,14 +10,15 @@ const SUBDIV_MULT = { quarter: 1, eighth: 2, triplet: 3, sixteenth: 4 };
 
 const STORAGE_KEY = 'metronome';
 const DEFAULTS = {
-  bpm:          120,
-  timeSig:      '4/4',
-  subdivision:  'quarter',
-  subVolume:    'full',   // 'full' = match beat level | 'soft' = quieter
-  sound:        'wood',
-  volume:       0.8,
-  barsPerPhase: 2,
-  ratio:        2,   // not in UI yet; edit here to try 1.5×, 3×, etc.
+  bpm:           120,
+  timeSig:       '4/4',
+  subdivision:   'quarter',
+  subVolume:     'full',   // 'full' = match beat level | 'soft' = quieter
+  sound:         'wood',
+  volume:        0.8,
+  barsPerPhase:  2,
+  stopAfterMins: 0,        // 0 = play indefinitely
+  ratio:         2,        // not in UI yet; edit here to try 1.5×, 3×, etc.
 };
 
 // ─── State ───────────────────────────────────────────────────
@@ -52,6 +53,9 @@ const $phaseFast   = document.getElementById('phase-fast');
 const $barCounter    = document.getElementById('bar-counter');
 const $progressFill  = document.getElementById('phase-progress-fill');
 const $timer         = document.getElementById('session-timer');
+const $stopAfter     = document.getElementById('stop-after');
+const $expanderBtn   = document.getElementById('expander-btn');
+const $expanderBody  = document.getElementById('expander-body');
 
 // ─── Boot ────────────────────────────────────────────────────
 function init() {
@@ -59,6 +63,7 @@ function init() {
   $timeSig.value    = settings.timeSig;
   $subdivSel.value  = settings.subdivision;
   $subVolSel.value  = settings.subVolume;
+  $stopAfter.value  = settings.stopAfterMins;
   $sound.value      = settings.sound;
   $volume.value     = settings.volume;
   $barsSelect.value = settings.barsPerPhase;
@@ -247,7 +252,13 @@ function resetPhaseUI() {
 function startTimer() {
   elapsedSeconds = 0;
   renderTimer();
-  timerInterval = setInterval(() => { elapsedSeconds++; renderTimer(); }, 1000);
+  timerInterval = setInterval(() => {
+    elapsedSeconds++;
+    renderTimer();
+    if (settings.stopAfterMins > 0 && elapsedSeconds >= settings.stopAfterMins * 60) {
+      stop();
+    }
+  }, 1000);
 }
 
 function stopTimer() {
@@ -374,6 +385,33 @@ $subdivSel.addEventListener('change', () => {
 $subVolSel.addEventListener('change', () => {
   settings.subVolume = $subVolSel.value;
   saveSettings(STORAGE_KEY, settings);
+});
+
+$stopAfter.addEventListener('change', () => {
+  settings.stopAfterMins = parseInt($stopAfter.value, 10);
+  saveSettings(STORAGE_KEY, settings);
+});
+
+// Expander: animate using max-height so the transition works smoothly.
+// The `hidden` attribute prevents the body from being focusable when closed.
+$expanderBtn.addEventListener('click', () => {
+  const isOpen = $expanderBtn.getAttribute('aria-expanded') === 'true';
+  if (isOpen) {
+    $expanderBody.style.maxHeight = $expanderBody.scrollHeight + 'px';
+    requestAnimationFrame(() => {
+      $expanderBody.style.maxHeight = '0';
+      $expanderBody.addEventListener('transitionend', () => {
+        $expanderBody.hidden = true;
+      }, { once: true });
+    });
+    $expanderBtn.setAttribute('aria-expanded', 'false');
+  } else {
+    $expanderBody.hidden = false;
+    requestAnimationFrame(() => {
+      $expanderBody.style.maxHeight = $expanderBody.scrollHeight + 'px';
+    });
+    $expanderBtn.setAttribute('aria-expanded', 'true');
+  }
 });
 
 $sound.addEventListener('change', () => {
