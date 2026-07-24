@@ -2,7 +2,7 @@ import { BeatScheduler } from '../shared/audio-scheduler.js';
 import { loadSettings, saveSettings } from '../shared/storage.js';
 
 // ─── Constants ───────────────────────────────────────────────
-const BEATS_PER_BAR = { '4/4': 4, '3/4': 3, '6/8': 6 };
+const BEATS_PER_BAR = { '4/4': 4, '3/4': 3, '5/4': 5, '6/8': 6, '7/8': 7 };
 
 // How many scheduler ticks per notated beat for each subdivision.
 const SUBDIV_MULT = { quarter: 1, eighth: 2, triplet: 3, sixteenth: 4, 'sixteenth-triplet': 6 };
@@ -19,6 +19,8 @@ const DEFAULTS = {
   stopAfterMins: 0,        // 0 = play indefinitely
   ratio:         2,        // not in UI yet; edit here to try 1.5×, 3×, etc.
   mode:          'standard',
+  ramp:          'off',    // '+inc/bars' e.g. '1/4' = +1 BPM every 4 bars
+  mute:          'off',    // 'low' | 'med' | 'high' = probability of silent bar
 };
 
 // ─── State ───────────────────────────────────────────────────
@@ -28,6 +30,7 @@ let masterGain         = null;
 let scheduler          = null;
 let isRunning          = false;
 let currentPhaseIsBase = true;
+let currentBarMuted    = false;
 let tapTimes           = [];
 let tapResetId         = null;
 let beatDotEls         = [];
@@ -58,6 +61,8 @@ const $stopAfter      = document.getElementById('stop-after');
 const $expanderBtn    = document.getElementById('expander-btn');
 const $expanderBody   = document.getElementById('expander-body');
 const $barsRow        = document.getElementById('bars-row');
+const $rampSelect     = document.getElementById('ramp-select');
+const $muteSelect     = document.getElementById('mute-select');
 const $modeStd        = document.getElementById('mode-standard');
 const $modeBurst      = document.getElementById('mode-burst');
 
@@ -71,6 +76,8 @@ function init() {
   $sound.value      = settings.sound;
   $volume.value     = settings.volume;
   $barsSelect.value = settings.barsPerPhase;
+  $rampSelect.value = settings.ramp;
+  $muteSelect.value = settings.mute;
   applyMode(settings.mode ?? 'standard', true);
   renderBeatDots();
 }
@@ -205,9 +212,20 @@ function scheduleBeep(time, type) {
   osc.stop(time + cfg.decay + 0.02);
 }
 
+// ─── Ramp / Mute helpers ─────────────────────────────────────
+function parseRamp(val) {
+  const m = val.match(/^(\d+)\/(\d+)$/);
+  return m ? { increment: +m[1], everyNBars: +m[2] } : null;
+}
+
+function shouldMute() {
+  const prob = { low: 0.125, med: 0.25, high: 0.5 }[settings.mute] ?? 0;
+  return Math.random() < prob;
+}
+
 // ─── Beat callback ───────────────────────────────────────────
 //
-// The first bar is always a silent count-in: clicks fire on main beats
+// The first bar is always a count-in: clicks fire on main beats
 // but phase logic hasn't started. Actual playback begins on the beat
 // immediately after the count-in bar completes.
 //
@@ -230,7 +248,6 @@ function onBeat(beatTime, beatIndex) {
         void $flash.offsetWidth;
         $flash.classList.add(beatInBar === 0 ? 'flash-accent' : 'flash-beat');
         activateDot(beatInBar);
-        // Show countdown in bar counter (visible in both modes during count-in)
         $barCounter.style.visibility = '';
         $barCounter.textContent = `${beatInBar + 1} of ${beatsPerBar}`;
       }, msAhead);
@@ -238,7 +255,7 @@ function onBeat(beatTime, beatIndex) {
     return;
   }
 
-  // Count-in just ended on this beat — restore bar counter visibility per mode
+  // Count-in just ended — restore bar counter visibility per mode
   if (beatIndex === countInSubs) {
     const msFirst = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
     setTimeout(() => {
@@ -251,6 +268,20 @@ function onBeat(beatTime, beatIndex) {
   // ── Actual playback — offset by count-in ─────────────────────
   const idx = beatIndex - countInSubs;
 
+  // Bar boundary: decide mute for this bar, trigger ramp if configured.
+  // idx % subPerBar === 0 identifies bar start in both modes since subPerBar
+  // (beatsPerBar × subdivMult) is invariant across phases.
+  if (idx % subPerBar === 0) {
+    currentBarMuted = settings.mute !== 'off' && shouldMute();
+    if (settings.ramp !== 'off' && idx > 0 && settings.bpm < 300) {
+      const ramp = parseRamp(settings.ramp);
+      if (ramp && (idx / subPerBar) % ramp.everyNBars === 0) {
+        const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+        setTimeout(() => setBPM(Math.min(300, settings.bpm + ramp.increment)), msAhead);
+      }
+    }
+  }
+
   if (settings.mode === 'standard') {
     const subInBar     = idx % subPerBar;
     const beatInBar    = Math.floor(subInBar / subdivMult);
@@ -259,14 +290,17 @@ function onBeat(beatTime, beatIndex) {
     const isDownbeat   = isMainBeat && beatInBar === 0;
 
     const type = isDownbeat ? 'accent' : isMainBeat ? 'beat' : 'sub';
-    scheduleClick(beatTime, type);
+    if (!currentBarMuted) scheduleClick(beatTime, type);
 
     if (isMainBeat) {
-      const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+      const msAhead    = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+      const barIsMuted = currentBarMuted;
       setTimeout(() => {
-        $flash.classList.remove('flash-accent', 'flash-beat');
-        void $flash.offsetWidth;
-        $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
+        if (!barIsMuted) {
+          $flash.classList.remove('flash-accent', 'flash-beat');
+          void $flash.offsetWidth;
+          $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
+        }
         activateDot(beatInBar);
         const pct = ((beatInBar + 1) / beatsPerBar) * 100;
         if (beatInBar === 0) {
@@ -312,14 +346,17 @@ function onBeat(beatTime, beatIndex) {
   }
 
   const type = isDownbeat ? 'accent' : isMainBeat ? 'beat' : 'sub';
-  scheduleClick(beatTime, type);
+  if (!currentBarMuted) scheduleClick(beatTime, type);
 
   if (isMainBeat) {
-    const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+    const msAhead    = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+    const barIsMuted = currentBarMuted;
     setTimeout(() => {
-      $flash.classList.remove('flash-accent', 'flash-beat');
-      void $flash.offsetWidth;
-      $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
+      if (!barIsMuted) {
+        $flash.classList.remove('flash-accent', 'flash-beat');
+        void $flash.offsetWidth;
+        $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
+      }
       activateDot(beatInBar);
       updateProgress(barInPhase, beatInBar);
       updatePhaseUI(isBase, barInPhase + 1, settings.barsPerPhase);
@@ -407,6 +444,7 @@ function stop() {
   scheduler = null;
   isRunning = false;
   currentPhaseIsBase = true;
+  currentBarMuted    = false;
   stopTimer();
   syncTransportUI();
   resetDots();
@@ -538,6 +576,16 @@ $sound.addEventListener('change', () => {
 $volume.addEventListener('input', () => {
   settings.volume = parseFloat($volume.value);
   if (masterGain) masterGain.gain.value = settings.volume;
+  saveSettings(STORAGE_KEY, settings);
+});
+
+$rampSelect.addEventListener('change', () => {
+  settings.ramp = $rampSelect.value;
+  saveSettings(STORAGE_KEY, settings);
+});
+
+$muteSelect.addEventListener('change', () => {
+  settings.mute = $muteSelect.value;
   saveSettings(STORAGE_KEY, settings);
 });
 
