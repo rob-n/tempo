@@ -3,32 +3,41 @@ import { loadSettings, saveSettings } from '../shared/storage.js';
 
 // ─── Constants ───────────────────────────────────────────────
 const BEATS_PER_BAR = { '4/4': 4, '3/4': 3, '6/8': 6 };
-const STORAGE_KEY   = 'metronome';
-const DEFAULTS      = {
+
+// How many scheduler ticks per notated beat for each subdivision.
+// Changing the ratio here is all it takes to add a new subdivision.
+const SUBDIV_MULT = { quarter: 1, eighth: 2, triplet: 3, sixteenth: 4 };
+
+const STORAGE_KEY = 'metronome';
+const DEFAULTS = {
   bpm:          120,
   timeSig:      '4/4',
+  subdivision:  'quarter',
   sound:        'wood',
   volume:       0.8,
   barsPerPhase: 2,
-  ratio:        2,    // not exposed in UI yet; change here to try 1.5x, 3x, etc.
+  ratio:        2,   // not in UI yet; edit here to try 1.5×, 3×, etc.
 };
 
 // ─── State ───────────────────────────────────────────────────
-const settings       = loadSettings(STORAGE_KEY, DEFAULTS);
-let audioCtx         = null;
-let masterGain       = null;
-let scheduler        = null;
-let isRunning        = false;
-let currentPhaseIsBase = true;  // tracks which phase the scheduler last visited
-let tapTimes         = [];
-let tapResetId       = null;
-let beatDotEls       = [];
+const settings         = loadSettings(STORAGE_KEY, DEFAULTS);
+let audioCtx           = null;
+let masterGain         = null;
+let scheduler          = null;
+let isRunning          = false;
+let currentPhaseIsBase = true;
+let tapTimes           = [];
+let tapResetId         = null;
+let beatDotEls         = [];
+let timerInterval      = null;
+let elapsedSeconds     = 0;
 
 // ─── DOM ─────────────────────────────────────────────────────
 const $bpmInput    = document.getElementById('bpm-input');
 const $bpmDec      = document.getElementById('bpm-dec');
 const $bpmInc      = document.getElementById('bpm-inc');
 const $timeSig     = document.getElementById('time-sig');
+const $subdivSel   = document.getElementById('subdiv-select');
 const $sound       = document.getElementById('sound-select');
 const $volume      = document.getElementById('volume');
 const $barsSelect  = document.getElementById('bars-select');
@@ -39,14 +48,16 @@ const $dotsEl      = document.getElementById('beat-dots');
 const $phaseBase   = document.getElementById('phase-base');
 const $phaseFast   = document.getElementById('phase-fast');
 const $barCounter  = document.getElementById('bar-counter');
+const $timer       = document.getElementById('session-timer');
 
 // ─── Boot ────────────────────────────────────────────────────
 function init() {
-  $bpmInput.value    = settings.bpm;
-  $timeSig.value     = settings.timeSig;
-  $sound.value       = settings.sound;
-  $volume.value      = settings.volume;
-  $barsSelect.value  = settings.barsPerPhase;
+  $bpmInput.value   = settings.bpm;
+  $timeSig.value    = settings.timeSig;
+  $subdivSel.value  = settings.subdivision;
+  $sound.value      = settings.sound;
+  $volume.value     = settings.volume;
+  $barsSelect.value = settings.barsPerPhase;
   renderBeatDots();
 }
 
@@ -86,87 +97,107 @@ function ensureAudio() {
 }
 
 // ─── Click synthesis ─────────────────────────────────────────
-function scheduleClick(time, isAccent) {
-  (settings.sound === 'beep' ? scheduleBeep : scheduleWood)(time, isAccent);
+// type: 'accent' (bar downbeat) | 'beat' (other main beats) | 'sub' (subdivision)
+function scheduleClick(time, type) {
+  (settings.sound === 'beep' ? scheduleBeep : scheduleWood)(time, type);
 }
 
-function scheduleWood(time, isAccent) {
+const WOOD = {
+  accent: { freq: 1400, gain: 1.00, decay: 0.06 },
+  beat:   { freq: 900,  gain: 0.65, decay: 0.06 },
+  sub:    { freq: 580,  gain: 0.32, decay: 0.04 },
+};
+const BEEP = {
+  accent: { freq: 1000, gain: 0.80, decay: 0.10 },
+  beat:   { freq: 750,  gain: 0.50, decay: 0.10 },
+  sub:    { freq: 540,  gain: 0.25, decay: 0.07 },
+};
+
+function scheduleWood(time, type) {
+  const cfg  = WOOD[type];
   const osc  = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.connect(gain);
   gain.connect(masterGain);
 
-  const f = isAccent ? 1400 : 900;
-  osc.frequency.setValueAtTime(f, time);
-  osc.frequency.exponentialRampToValueAtTime(f * 0.35, time + 0.04);
-  gain.gain.setValueAtTime(isAccent ? 1.0 : 0.65, time);
-  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+  osc.frequency.setValueAtTime(cfg.freq, time);
+  osc.frequency.exponentialRampToValueAtTime(cfg.freq * 0.35, time + 0.04);
+  gain.gain.setValueAtTime(cfg.gain, time);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + cfg.decay);
 
   osc.start(time);
-  osc.stop(time + 0.08);
+  osc.stop(time + cfg.decay + 0.02);
 }
 
-function scheduleBeep(time, isAccent) {
+function scheduleBeep(time, type) {
+  const cfg  = BEEP[type];
   const osc  = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.connect(gain);
   gain.connect(masterGain);
 
   osc.type = 'sine';
-  osc.frequency.value = isAccent ? 1000 : 750;
-  gain.gain.setValueAtTime(isAccent ? 0.8 : 0.5, time);
-  gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.1);
+  osc.frequency.value = cfg.freq;
+  gain.gain.setValueAtTime(cfg.gain, time);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + cfg.decay);
 
   osc.start(time);
-  osc.stop(time + 0.12);
+  osc.stop(time + cfg.decay + 0.02);
 }
 
 // ─── Beat callback ───────────────────────────────────────────
 //
-// Phase cycle structure (beatIndex counts from 0):
+// The scheduler fires at (bpm × subdivMult) — one tick per subdivision.
+// We decompose the tick index to find:
+//   barInPhase    — which bar within the current phase (for bar counter)
+//   beatInBar     — which notated beat within the bar (for dot position)
+//   subdivInBeat  — which subdivision within the beat (0 = main beat)
 //
-//   beatsPerPhase = barsPerPhase × beatsPerBar
-//   cycleLen      = 2 × beatsPerPhase  (base phase + fast phase)
-//   beatInCycle   = beatIndex % cycleLen
+// Phase cycle (in ticks):
+//   subPerPhase = barsPerPhase × beatsPerBar × subdivMult
+//   cycleLen    = 2 × subPerPhase  (base phase then fast phase)
 //
-//   [0 … beatsPerPhase-1]   → base phase (at settings.bpm)
-//   [beatsPerPhase … cycleLen-1] → fast phase (at settings.bpm × ratio)
-//
-// BPM switch: called on the FIRST beat of the incoming phase.
-// This lets the outgoing phase's final beat keep its own BPM for the
-// post-beat interval, so it gets a full beat's worth of space rather
-// than being cut short by the new (faster) tempo's shorter interval.
+// BPM switch fires on tick 0 of the incoming phase so the outgoing
+// phase's last beat keeps its own full-length interval.
 //
 function onBeat(beatTime, beatIndex) {
-  const beatsPerBar   = BEATS_PER_BAR[settings.timeSig];
-  const beatsPerPhase = settings.barsPerPhase * beatsPerBar;
-  const cycleLen      = 2 * beatsPerPhase;
-  const beatInCycle   = beatIndex % cycleLen;
-  const isBase        = beatInCycle < beatsPerPhase;
-  const beatInPhase   = isBase ? beatInCycle : beatInCycle - beatsPerPhase;
-  const barInPhase    = Math.floor(beatInPhase / beatsPerBar);
-  const thisBeatInBar = beatInPhase % beatsPerBar;
-  const isAccent      = thisBeatInBar === 0;
+  const beatsPerBar  = BEATS_PER_BAR[settings.timeSig];
+  const subdivMult   = SUBDIV_MULT[settings.subdivision] ?? 1;
+  const subPerBar    = beatsPerBar * subdivMult;
+  const subPerPhase  = settings.barsPerPhase * subPerBar;
+  const cycleLen     = 2 * subPerPhase;
+
+  const subInCycle   = beatIndex % cycleLen;
+  const isBase       = subInCycle < subPerPhase;
+  const subInPhase   = isBase ? subInCycle : subInCycle - subPerPhase;
+  const barInPhase   = Math.floor(subInPhase / subPerBar);
+  const subInBar     = subInPhase % subPerBar;
+  const beatInBar    = Math.floor(subInBar / subdivMult);
+  const subdivInBeat = subInBar % subdivMult;
+  const isMainBeat   = subdivInBeat === 0;
+  const isDownbeat   = isMainBeat && beatInBar === 0;
 
   currentPhaseIsBase = isBase;
 
-  // Switch on beat 0 of each phase (no-op on the very first beat since
-  // the scheduler was already started at base BPM).
-  if (beatInPhase === 0) {
-    scheduler.setBPM(isBase ? settings.bpm : settings.bpm * settings.ratio);
+  // Switch tempo on tick 0 of each phase (no-op on the very first tick).
+  if (subInPhase === 0) {
+    scheduler.setBPM(schedulerBPM(isBase));
   }
 
-  scheduleClick(beatTime, isAccent);
+  const type = isDownbeat ? 'accent' : isMainBeat ? 'beat' : 'sub';
+  scheduleClick(beatTime, type);
 
-  // Visual update fires when the beat actually sounds, not during lookahead.
-  const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
-  setTimeout(() => {
-    $flash.classList.remove('flash-accent', 'flash-beat');
-    void $flash.offsetWidth;
-    $flash.classList.add(isAccent ? 'flash-accent' : 'flash-beat');
-    activateDot(thisBeatInBar);
-    updatePhaseUI(isBase, barInPhase + 1, settings.barsPerPhase);
-  }, msAhead);
+  // Visuals only update on main beats to avoid overwhelming flicker.
+  if (isMainBeat) {
+    const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+    setTimeout(() => {
+      $flash.classList.remove('flash-accent', 'flash-beat');
+      void $flash.offsetWidth;
+      $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
+      activateDot(beatInBar);
+      updatePhaseUI(isBase, barInPhase + 1, settings.barsPerPhase);
+    }, msAhead);
+  }
 }
 
 // ─── Phase UI ────────────────────────────────────────────────
@@ -182,13 +213,34 @@ function resetPhaseUI() {
   $barCounter.textContent = '';
 }
 
+// ─── Session timer ───────────────────────────────────────────
+function startTimer() {
+  elapsedSeconds = 0;
+  renderTimer();
+  timerInterval = setInterval(() => { elapsedSeconds++; renderTimer(); }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  elapsedSeconds = 0;
+  renderTimer();
+}
+
+function renderTimer() {
+  const m = Math.floor(elapsedSeconds / 60);
+  const s = elapsedSeconds % 60;
+  $timer.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 // ─── Transport ───────────────────────────────────────────────
 function start() {
   ensureAudio();
   currentPhaseIsBase = true;
   scheduler = new BeatScheduler(audioCtx, onBeat);
-  scheduler.start(settings.bpm);
+  scheduler.start(schedulerBPM(true));
   isRunning = true;
+  startTimer();
   syncTransportUI();
 }
 
@@ -197,6 +249,7 @@ function stop() {
   scheduler = null;
   isRunning = false;
   currentPhaseIsBase = true;
+  stopTimer();
   syncTransportUI();
   resetDots();
   resetPhaseUI();
@@ -209,16 +262,18 @@ function syncTransportUI() {
   $startStop.querySelector('.btn-label').textContent = isRunning ? 'Stop' : 'Start';
 }
 
-// ─── BPM ─────────────────────────────────────────────────────
-// When changing BPM mid-playback, apply the correct tempo for whichever
-// phase is currently active so the scheduler doesn't jump to the wrong speed.
+// ─── BPM helpers ─────────────────────────────────────────────
+// The scheduler always runs at the notated BPM × subdivision multiplier.
+function schedulerBPM(isBase) {
+  const mult = SUBDIV_MULT[settings.subdivision] ?? 1;
+  return settings.bpm * (isBase ? 1 : settings.ratio) * mult;
+}
+
 function setBPM(bpm) {
-  const v        = Math.max(20, Math.min(300, Math.round(bpm)));
-  settings.bpm   = v;
+  const v = Math.max(20, Math.min(300, Math.round(bpm)));
+  settings.bpm    = v;
   $bpmInput.value = v;
-  if (scheduler) {
-    scheduler.setBPM(currentPhaseIsBase ? v : v * settings.ratio);
-  }
+  if (scheduler) scheduler.setBPM(schedulerBPM(currentPhaseIsBase));
   saveSettings(STORAGE_KEY, settings);
 }
 
@@ -261,7 +316,7 @@ $bpmInput.addEventListener('input', () => {
   const v = parseInt($bpmInput.value, 10);
   if (!isNaN(v) && v >= 20 && v <= 300) {
     settings.bpm = v;
-    if (scheduler) scheduler.setBPM(currentPhaseIsBase ? v : v * settings.ratio);
+    if (scheduler) scheduler.setBPM(schedulerBPM(currentPhaseIsBase));
     saveSettings(STORAGE_KEY, settings);
   }
 });
@@ -277,6 +332,12 @@ $barsSelect.addEventListener('change', () => {
 $timeSig.addEventListener('change', () => {
   settings.timeSig = $timeSig.value;
   renderBeatDots();
+  saveSettings(STORAGE_KEY, settings);
+});
+
+$subdivSel.addEventListener('change', () => {
+  settings.subdivision = $subdivSel.value;
+  if (scheduler) scheduler.setBPM(schedulerBPM(currentPhaseIsBase));
   saveSettings(STORAGE_KEY, settings);
 });
 

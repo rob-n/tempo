@@ -12,6 +12,7 @@
     <header class="app-header">
       <a href="../" class="back-link">← Tools</a>
       <h1 class="app-title">Ratio Metronome</h1>
+      <div class="session-timer" id="session-timer">0:00</div>
     </header>
 
     <section class="visualizer">
@@ -64,6 +65,15 @@
           <option value="4/4">4 / 4</option>
           <option value="3/4">3 / 4</option>
           <option value="6/8">6 / 8</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="control-label" for="subdiv-select">Beat</label>
+        <select class="control-select" id="subdiv-select">
+          <option value="quarter">Quarter</option>
+          <option value="eighth">Eighth</option>
+          <option value="triplet">Triplet</option>
+          <option value="sixteenth">Sixteenth</option>
         </select>
       </div>
       <div class="control-row">

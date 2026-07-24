@@ -52,6 +52,14 @@ body {
   letter-spacing: 0.03em;
 }
 
+.session-timer {
+  margin-left: auto;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
 /* ─── Visualizer ────────────────────────────────────────── */
 .visualizer {
   display: flex;
