@@ -13,6 +13,7 @@ const DEFAULTS = {
   bpm:          120,
   timeSig:      '4/4',
   subdivision:  'quarter',
+  subVolume:    'full',   // 'full' = match beat level | 'soft' = quieter
   sound:        'wood',
   volume:       0.8,
   barsPerPhase: 2,
@@ -38,6 +39,7 @@ const $bpmDec      = document.getElementById('bpm-dec');
 const $bpmInc      = document.getElementById('bpm-inc');
 const $timeSig     = document.getElementById('time-sig');
 const $subdivSel   = document.getElementById('subdiv-select');
+const $subVolSel   = document.getElementById('sub-vol-select');
 const $sound       = document.getElementById('sound-select');
 const $volume      = document.getElementById('volume');
 const $barsSelect  = document.getElementById('bars-select');
@@ -55,6 +57,7 @@ function init() {
   $bpmInput.value   = settings.bpm;
   $timeSig.value    = settings.timeSig;
   $subdivSel.value  = settings.subdivision;
+  $subVolSel.value  = settings.subVolume;
   $sound.value      = settings.sound;
   $volume.value     = settings.volume;
   $barsSelect.value = settings.barsPerPhase;
@@ -99,7 +102,8 @@ function ensureAudio() {
 // ─── Click synthesis ─────────────────────────────────────────
 // type: 'accent' (bar downbeat) | 'beat' (other main beats) | 'sub' (subdivision)
 function scheduleClick(time, type) {
-  (settings.sound === 'beep' ? scheduleBeep : scheduleWood)(time, type);
+  const effective = (type === 'sub' && settings.subVolume === 'full') ? 'beat' : type;
+  (settings.sound === 'beep' ? scheduleBeep : scheduleWood)(time, effective);
 }
 
 const WOOD = {
@@ -338,6 +342,11 @@ $timeSig.addEventListener('change', () => {
 $subdivSel.addEventListener('change', () => {
   settings.subdivision = $subdivSel.value;
   if (scheduler) scheduler.setBPM(schedulerBPM(currentPhaseIsBase));
+  saveSettings(STORAGE_KEY, settings);
+});
+
+$subVolSel.addEventListener('change', () => {
+  settings.subVolume = $subVolSel.value;
   saveSettings(STORAGE_KEY, settings);
 });
 
