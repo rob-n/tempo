@@ -96,11 +96,15 @@ function resetDots() {
 }
 
 // ─── Audio context ───────────────────────────────────────────
-// iOS Safari defaults Web Audio API to the "ambient" AVAudioSession
-// category, which the Ring/Silent switch mutes. Routing output through
-// a MediaStreamDestinationNode and playing the resulting stream via an
-// <audio> element forces the "playback" category (same as music apps),
-// bypassing the silent switch entirely.
+// On iOS, Web Audio API defaults to the "ambient" AVAudioSession category,
+// which the Ring/Silent switch mutes. Routing output through a
+// MediaStreamDestinationNode played by an <audio> element forces the
+// "playback" category, bypassing the switch.
+// On all other platforms we connect directly to audioCtx.destination —
+// the MediaStream path can silently fail on desktop browsers (Chrome's
+// autoplay policy treats programmatic MediaStreams differently), leaving
+// audio going nowhere.
+const _isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
 let _streamAudioEl = null;
 
 function ensureAudio() {
@@ -110,17 +114,18 @@ function ensureAudio() {
     masterGain = audioCtx.createGain();
     masterGain.gain.value = settings.volume;
 
-    try {
-      const dest = audioCtx.createMediaStreamDestination();
-      masterGain.connect(dest);
-      _streamAudioEl = document.createElement('audio');
-      _streamAudioEl.srcObject = dest.stream;
-      _streamAudioEl.setAttribute('playsinline', '');
-      _streamAudioEl.play().catch(() => {
-        // If stream playback fails fall back to direct output
+    if (_isIOS) {
+      try {
+        const dest = audioCtx.createMediaStreamDestination();
+        masterGain.connect(dest);
+        _streamAudioEl = document.createElement('audio');
+        _streamAudioEl.srcObject = dest.stream;
+        _streamAudioEl.setAttribute('playsinline', '');
+        _streamAudioEl.play().catch(() => masterGain.connect(audioCtx.destination));
+      } catch {
         masterGain.connect(audioCtx.destination);
-      });
-    } catch {
+      }
+    } else {
       masterGain.connect(audioCtx.destination);
     }
   }
