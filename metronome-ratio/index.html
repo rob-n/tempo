@@ -16,7 +16,9 @@
     </header>
 
     <section class="visualizer">
-      <div class="beat-flash" id="beat-flash"></div>
+      <button class="beat-flash" id="beat-flash" type="button" aria-label="Start">
+        <span class="transport-icon" id="transport-icon" aria-hidden="true">▶</span>
+      </button>
       <div class="beat-dots" id="beat-dots"></div>
       <div class="phase-progress">
         <div class="phase-progress-fill" id="phase-progress-fill"></div>
@@ -95,7 +97,6 @@
         </select>
       </div>
 
-      <!-- Sound settings expander -->
       <button class="expander-btn" id="expander-btn" aria-expanded="false" aria-controls="expander-body">
         <span>Sound settings</span>
         <span class="expander-icon" aria-hidden="true">›</span>
@@ -123,13 +124,6 @@
     </section>
 
   </main>
-
-  <footer class="footer">
-    <button class="start-stop-btn" id="start-stop-btn">
-      <span class="btn-icon">▶</span>
-      <span class="btn-label">Start</span>
-    </button>
-  </footer>
   <script type="module" src="app.js"></script>
 </body>
 </html>

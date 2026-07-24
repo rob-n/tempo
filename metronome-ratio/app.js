@@ -44,9 +44,9 @@ const $subVolSel   = document.getElementById('sub-vol-select');
 const $sound       = document.getElementById('sound-select');
 const $volume      = document.getElementById('volume');
 const $barsSelect  = document.getElementById('bars-select');
-const $tapBtn      = document.getElementById('tap-btn');
-const $startStop   = document.getElementById('start-stop-btn');
-const $flash       = document.getElementById('beat-flash');
+const $tapBtn        = document.getElementById('tap-btn');
+const $flash         = document.getElementById('beat-flash');
+const $transportIcon = document.getElementById('transport-icon');
 const $dotsEl      = document.getElementById('beat-dots');
 const $phaseBase   = document.getElementById('phase-base');
 const $phaseFast   = document.getElementById('phase-fast');
@@ -95,47 +95,36 @@ function resetDots() {
   beatDotEls.forEach(d => d.classList.remove('past', 'active', 'active-accent'));
 }
 
-// ─── iOS silent-mode bypass ──────────────────────────────────
-// iOS WebKit defaults Web Audio API to the "ambient" AVAudioSession
-// category, which the Ring/Silent switch mutes. Playing any audio
-// through an <audio> element promotes the session to "playback",
-// which ignores the switch. We loop a one-sample silent WAV and keep
-// it alive for the entire page visit so the session stays active.
-const _silentWAV = (() => {
-  const b = new Uint8Array([
-    0x52,0x49,0x46,0x46, 0x26,0x00,0x00,0x00, // RIFF + size (38)
-    0x57,0x41,0x56,0x45, 0x66,0x6d,0x74,0x20, // WAVE fmt·
-    0x10,0x00,0x00,0x00, 0x01,0x00, 0x01,0x00, // PCM, mono
-    0x44,0xac,0x00,0x00, 0x88,0x58,0x01,0x00, // 44100 Hz, 88200 B/s
-    0x02,0x00, 0x10,0x00,                      // block=2, 16-bit
-    0x64,0x61,0x74,0x61, 0x02,0x00,0x00,0x00, // data + size (2)
-    0x00,0x00,                                  // one silent sample
-  ]);
-  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
-})();
-
-let _silentEl = null;
-function _activatePlaybackSession() {
-  if (_silentEl) return;
-  _silentEl = document.createElement('audio');
-  _silentEl.src = _silentWAV;
-  _silentEl.loop = true;
-  _silentEl.volume = 0.001;
-  _silentEl.setAttribute('playsinline', '');
-  _silentEl.play().catch(() => {});
-}
-
 // ─── Audio context ───────────────────────────────────────────
+// iOS Safari defaults Web Audio API to the "ambient" AVAudioSession
+// category, which the Ring/Silent switch mutes. Routing output through
+// a MediaStreamDestinationNode and playing the resulting stream via an
+// <audio> element forces the "playback" category (same as music apps),
+// bypassing the silent switch entirely.
+let _streamAudioEl = null;
+
 function ensureAudio() {
   if (!audioCtx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
     masterGain = audioCtx.createGain();
     masterGain.gain.value = settings.volume;
-    masterGain.connect(audioCtx.destination);
+
+    try {
+      const dest = audioCtx.createMediaStreamDestination();
+      masterGain.connect(dest);
+      _streamAudioEl = document.createElement('audio');
+      _streamAudioEl.srcObject = dest.stream;
+      _streamAudioEl.setAttribute('playsinline', '');
+      _streamAudioEl.play().catch(() => {
+        // If stream playback fails fall back to direct output
+        masterGain.connect(audioCtx.destination);
+      });
+    } catch {
+      masterGain.connect(audioCtx.destination);
+    }
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  _activatePlaybackSession();
 }
 
 // ─── Click synthesis ─────────────────────────────────────────
@@ -330,9 +319,9 @@ function stop() {
 }
 
 function syncTransportUI() {
-  $startStop.classList.toggle('running', isRunning);
-  $startStop.querySelector('.btn-icon').textContent  = isRunning ? '■' : '▶';
-  $startStop.querySelector('.btn-label').textContent = isRunning ? 'Stop' : 'Start';
+  $flash.classList.toggle('playing', isRunning);
+  $flash.setAttribute('aria-label', isRunning ? 'Stop' : 'Start');
+  $transportIcon.textContent = isRunning ? '■' : '▶';
 }
 
 // ─── BPM helpers ─────────────────────────────────────────────
@@ -459,7 +448,7 @@ $volume.addEventListener('input', () => {
 
 $tapBtn.addEventListener('click', handleTap);
 
-$startStop.addEventListener('click', () => {
+$flash.addEventListener('click', () => {
   isRunning ? stop() : start();
 });
 
