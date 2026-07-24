@@ -1,8 +1,277 @@
-/* Placeholder — populated in Phase 2 */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #0d0d0f;
+  --surface:      #17171d;
+  --border:       #2a2a35;
+  --text:         #f0ede8;
+  --text-dim:     #55556a;
+  --accent:       #f59e0b;
+  --accent-glow:  rgba(245, 158, 11, 0.3);
+  --radius:       14px;
+}
+
 body {
-  font-family: sans-serif;
-  margin: 0;
-  padding: 1rem;
-  background: #1a1a1a;
-  color: #f0f0f0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Layout ────────────────────────────────────────────── */
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 0 24px calc(40px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── Header ────────────────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 18px;
+}
+
+.back-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 0;
+}
+.back-link:hover { color: var(--text); }
+
+.app-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+/* ─── Visualizer ────────────────────────────────────────── */
+.visualizer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-top: 12px;
+}
+
+.beat-flash {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+}
+
+@keyframes pulse-accent {
+  0%   { background: var(--accent); box-shadow: 0 0 28px var(--accent-glow), 0 0 56px var(--accent-glow); transform: scale(1.18); }
+  100% { background: var(--surface); box-shadow: none; transform: scale(1); }
+}
+@keyframes pulse-beat {
+  0%   { background: rgba(240,237,232,0.35); box-shadow: 0 0 14px rgba(240,237,232,0.12); transform: scale(1.07); }
+  100% { background: var(--surface); box-shadow: none; transform: scale(1); }
+}
+
+.beat-flash.flash-accent { animation: pulse-accent 0.18s ease-out forwards; }
+.beat-flash.flash-beat   { animation: pulse-beat   0.14s ease-out forwards; }
+
+.beat-dots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 14px;
+}
+
+.beat-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: transform 0.05s;
+}
+.beat-dot.active        { background: rgba(245,158,11,0.55); }
+.beat-dot.active-accent { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); transform: scale(1.35); }
+
+/* ─── BPM ───────────────────────────────────────────────── */
+.bpm-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.bpm-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  flex-shrink: 0;
+}
+.bpm-btn:active { background: var(--border); }
+
+.bpm-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bpm-input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 88px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  text-align: center;
+  width: 190px;
+  outline: none;
+  line-height: 1;
+  padding: 0;
+  -moz-appearance: textfield;
+  letter-spacing: -0.02em;
+}
+.bpm-input::-webkit-inner-spin-button,
+.bpm-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+.bpm-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: -6px;
+}
+
+/* ─── Tap button ────────────────────────────────────────── */
+.tap-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.02em;
+}
+.tap-btn:active { background: var(--border); }
+
+/* ─── Sound controls ────────────────────────────────────── */
+.sound-controls {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  padding: 15px 18px;
+  gap: 12px;
+}
+.control-row + .control-row { border-top: 1px solid var(--border); }
+
+.control-label {
+  font-size: 14px;
+  color: var(--text-dim);
+  min-width: 54px;
+  flex-shrink: 0;
+}
+
+.control-select {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+  text-align: right;
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.volume-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.volume-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+/* ─── Start / Stop ──────────────────────────────────────── */
+.start-stop-btn {
+  width: 100%;
+  height: 62px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: #0d0d0f;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.03em;
+}
+.start-stop-btn.running {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: var(--text);
+}
+.start-stop-btn:active { opacity: 0.8; }
+
+.btn-icon  { font-size: 15px; }
+.btn-label { font-size: 17px; }
+
+/* ─── Small screens ─────────────────────────────────────── */
+@media (max-width: 360px) {
+  .bpm-input { font-size: 72px; width: 160px; }
 }

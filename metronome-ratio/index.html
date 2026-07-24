@@ -2,18 +2,71 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Ratio Metronome</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Ratio Metronome</h1>
-  <p>Full UI coming in Phase 2.</p>
+  <main class="app">
 
-  <!-- Phase 1: smoke-test button for the audio scheduler -->
-  <button id="test-btn">Start scheduler test (120 BPM)</button>
-  <p>Open DevTools → Console to see scheduled beat times and verify there is no drift.</p>
+    <header class="app-header">
+      <a href="../" class="back-link">← Tools</a>
+      <h1 class="app-title">Ratio Metronome</h1>
+    </header>
 
+    <section class="visualizer">
+      <div class="beat-flash" id="beat-flash"></div>
+      <div class="beat-dots" id="beat-dots"></div>
+    </section>
+
+    <section class="bpm-section">
+      <button class="bpm-btn" id="bpm-dec" aria-label="Decrease BPM">−</button>
+      <div class="bpm-display">
+        <input
+          class="bpm-input"
+          id="bpm-input"
+          type="number"
+          min="20"
+          max="300"
+          value="120"
+          inputmode="numeric"
+          aria-label="BPM"
+        >
+        <span class="bpm-label">BPM</span>
+      </div>
+      <button class="bpm-btn" id="bpm-inc" aria-label="Increase BPM">+</button>
+    </section>
+
+    <button class="tap-btn" id="tap-btn">Tap Tempo</button>
+
+    <section class="sound-controls">
+      <div class="control-row">
+        <label class="control-label" for="time-sig">Time</label>
+        <select class="control-select" id="time-sig">
+          <option value="4/4">4 / 4</option>
+          <option value="3/4">3 / 4</option>
+          <option value="6/8">6 / 8</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="control-label" for="sound-select">Sound</label>
+        <select class="control-select" id="sound-select">
+          <option value="wood">Wood</option>
+          <option value="beep">Beep</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="control-label" for="volume">Volume</label>
+        <input class="volume-slider" id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
+      </div>
+    </section>
+
+    <button class="start-stop-btn" id="start-stop-btn">
+      <span class="btn-icon">▶</span>
+      <span class="btn-label">Start</span>
+    </button>
+
+  </main>
   <script type="module" src="app.js"></script>
 </body>
 </html>
