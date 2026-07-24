@@ -132,9 +132,10 @@ function scheduleBeep(time, isAccent) {
 //   [0 … beatsPerPhase-1]   → base phase (at settings.bpm)
 //   [beatsPerPhase … cycleLen-1] → fast phase (at settings.bpm × ratio)
 //
-// BPM switch: called on the LAST beat of each phase so that
-// `_nextBeatTime += secondsPerBeat()` inside the scheduler uses the
-// new BPM for the very first beat of the incoming phase.
+// BPM switch: called on the FIRST beat of the incoming phase.
+// This lets the outgoing phase's final beat keep its own BPM for the
+// post-beat interval, so it gets a full beat's worth of space rather
+// than being cut short by the new (faster) tempo's shorter interval.
 //
 function onBeat(beatTime, beatIndex) {
   const beatsPerBar   = BEATS_PER_BAR[settings.timeSig];
@@ -149,9 +150,10 @@ function onBeat(beatTime, beatIndex) {
 
   currentPhaseIsBase = isBase;
 
-  // Switch tempo on the last beat of each phase.
-  if (beatInPhase === beatsPerPhase - 1) {
-    scheduler.setBPM(isBase ? settings.bpm * settings.ratio : settings.bpm);
+  // Switch on beat 0 of each phase (no-op on the very first beat since
+  // the scheduler was already started at base BPM).
+  if (beatInPhase === 0) {
+    scheduler.setBPM(isBase ? settings.bpm : settings.bpm * settings.ratio);
   }
 
   scheduleClick(beatTime, isAccent);
