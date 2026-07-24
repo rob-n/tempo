@@ -1,5 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+}
+
 :root {
   --bg:           #0d0d0f;
   --surface:      #17171d;
@@ -15,6 +20,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  min-height: 100vh;        /* fallback for iOS < 15.4 */
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
@@ -41,7 +47,7 @@ body {
   color: var(--text-dim);
   text-decoration: none;
   font-size: 14px;
-  padding: 4px 0;
+  padding: 12px 0;   /* 44px tall touch target */
 }
 .back-link:hover { color: var(--text); }
 
@@ -185,6 +191,8 @@ body {
 .bpm-btn:active { background: var(--border); }
 
 .bpm-display {
+  flex: 1;
+  min-width: 0;   /* allow flex child to shrink below content size */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -194,12 +202,13 @@ body {
   background: transparent;
   border: none;
   color: var(--text);
-  font-size: 88px;
+  /* clamp: never smaller than 60px, scales with viewport, caps at 88px */
+  font-size: clamp(60px, 21vw, 88px);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
   text-align: center;
-  width: 190px;
+  width: 100%;
   outline: none;
   line-height: 1;
   padding: 0;
@@ -284,15 +293,15 @@ body {
 }
 .volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
 }
 .volume-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
@@ -369,7 +378,4 @@ body {
 .btn-icon  { font-size: 15px; }
 .btn-label { font-size: 17px; }
 
-/* ─── Small screens ─────────────────────────────────────── */
-@media (max-width: 360px) {
-  .bpm-input { font-size: 72px; width: 160px; }
-}
+/* clamp() on .bpm-input handles small screens — no breakpoint needed */

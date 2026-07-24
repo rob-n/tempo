@@ -98,7 +98,8 @@ function resetDots() {
 // ─── Audio context ───────────────────────────────────────────
 function ensureAudio() {
   if (!audioCtx) {
-    audioCtx = new AudioContext();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
     masterGain = audioCtx.createGain();
     masterGain.gain.value = settings.volume;
     masterGain.connect(audioCtx.destination);

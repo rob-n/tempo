@@ -1,6 +1,6 @@
 # Practice Tools Hub
 
-A static-site collection of small practice/utility tools for musicians, hosted on GitHub Pages. No build step required — open any `index.html` directly in a browser or serve the repo root with any static file server.
+A static-site collection of small practice/utility tools for musicians, hosted on GitHub Pages. No build step required — open any `index.html` directly in a browser or serve the repo root with any static file server. Primary target is mobile Safari.
 
 ## Repo structure
 
@@ -19,25 +19,76 @@ README.md
 ## Running locally
 
 ```bash
-# Python 3
 python3 -m http.server 8080
 # then open http://localhost:8080
 ```
 
 Any static file server works. **Do not** open files via `file://` — ES modules require HTTP.
 
+## Ratio Metronome
+
+Alternates between a base tempo and a faster tempo (default ×2) for a set number of bars, then loops back. Designed for building comfort at a target speed by repeatedly crossing the boundary between comfortable and fast.
+
+**Controls**
+
+| Control | Description |
+|---|---|
+| BPM | Numeric input, 20–300. Tap +/− or hold for continuous change. |
+| Tap Tempo | Averages the last 4–6 tap intervals; resets after a 3 s gap. |
+| Bars | How many bars each phase lasts (1–8). |
+| Time | Time signature: 4/4, 3/4, or 6/8. |
+| Beat | Subdivision: quarter, eighth, triplet, or sixteenth. |
+| Stop | Auto-stop after 1–30 minutes, or ∞ for continuous play. |
+| Sound settings | Expander containing sub-tick volume (Full/Soft), click sound (Wood/Beep), and volume slider. |
+| Start / Stop | Spacebar also toggles. |
+
+**Visual feedback**
+- Beat flash circle pulses on every main beat (amber on bar downbeat, white on others).
+- Dot row shows beat position within the current bar — past beats stay dimly lit.
+- Phase progress bar fills across the full phase (all n bars), resets at each transition.
+- BASE / FAST chips show the active phase at a glance.
+- Session timer counts up in the header; resets on stop.
+
+**Sound**
+- Three click levels: accent (bar downbeat), beat (other main beats), subdivision.
+- Wood and Beep sounds synthesised via Web Audio API — no sample files needed.
+- All synthesised at precise `AudioContext` times; no drift at any BPM.
+
+**Settings** persist to `localStorage` across reloads (BPM, time sig, subdivision, bars, sound, volume, stop timer).
+
 ## Adding a new tool
 
 1. Create a new folder at the repo root (e.g. `/chord-trainer/`).
 2. Add `index.html`, your JS, and CSS inside it. Use relative paths (`../shared/`) to import shared modules.
-3. Add a link card to the root `index.html` pointing at your new folder.
+3. Add a link card to the root `index.html`.
 
-That's it — no config, no build pipeline to update.
+No config, no build pipeline to update.
 
-## Key modules
+## Key shared modules
 
 **`shared/audio-scheduler.js` — `BeatScheduler`**
-Schedules beats against `AudioContext.currentTime` using a lookahead window so there is no cumulative drift. Pass it an `AudioContext` and a callback; it calls the callback at precise scheduled times regardless of `setInterval` jitter.
+
+```js
+import { BeatScheduler } from '../shared/audio-scheduler.js';
+
+const scheduler = new BeatScheduler(audioContext, (beatTime, beatIndex) => {
+  // beatTime: exact AudioContext time the beat should sound
+  // beatIndex: 0-based counter since start
+});
+scheduler.start(120);   // BPM
+scheduler.setBPM(240);  // change tempo mid-playback
+scheduler.stop();
+```
+
+Schedules beats against `AudioContext.currentTime` with a lookahead window (default 100 ms, ticking every 25 ms). No cumulative drift.
 
 **`shared/storage.js`**
-Thin wrappers around `localStorage` with JSON serialization, default-merging, and silent failure in private-browsing mode.
+
+```js
+import { saveSettings, loadSettings } from '../shared/storage.js';
+
+saveSettings('my-tool', { bpm: 120 });
+const s = loadSettings('my-tool', { bpm: 120 }); // defaults merged in
+```
+
+Thin wrappers around `localStorage` — JSON serialisation, default-merging on load, silent failure in private-browsing mode.
