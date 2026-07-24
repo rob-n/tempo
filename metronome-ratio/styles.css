@@ -79,8 +79,9 @@ body {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: var(--surface);
-  border: 2px solid var(--border);
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
   /* button reset */
   padding: 0;
   cursor: pointer;
@@ -90,28 +91,37 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .beat-flash:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
 
+/* While running: switch to dark surface so pulse animations are dominant */
+.beat-flash.playing {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
 .transport-icon {
   font-size: 22px;
-  color: var(--text-dim);
+  color: #0d0d0f;
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
-  transition: opacity 0.2s, font-size 0.2s;
+  transition: opacity 0.2s, font-size 0.2s, color 0.15s;
   /* nudge the play triangle to look optically centred */
   position: relative;
   left: 2px;
 }
 
-/* While running: shrink and dim the stop icon so the pulse is dominant */
+/* While running: shrink, dim, and restore dim colour for the stop icon */
 .beat-flash.playing .transport-icon {
   font-size: 13px;
   opacity: 0.25;
+  color: var(--text-dim);
   left: 0;
 }
 
