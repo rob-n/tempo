@@ -378,9 +378,11 @@ function syncTransportUI() {
 }
 
 // ─── BPM helpers ─────────────────────────────────────────────
+// In burst mode the set BPM is the fast/target tempo; base runs at bpm÷ratio.
 function schedulerBPM(isBase) {
   const mult = SUBDIV_MULT[settings.subdivision] ?? 1;
-  return settings.bpm * (isBase ? 1 : settings.ratio) * mult;
+  if (settings.mode === 'standard') return settings.bpm * mult;
+  return settings.bpm * (isBase ? (1 / settings.ratio) : 1) * mult;
 }
 
 function setBPM(bpm) {
