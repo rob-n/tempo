@@ -16,21 +16,6 @@
       <div class="session-timer" id="session-timer">0:00</div>
     </header>
 
-    <section class="visualizer">
-      <button class="beat-flash" id="beat-flash" type="button" aria-label="Start">
-        <span class="transport-icon" id="transport-icon" aria-hidden="true">▶</span>
-      </button>
-      <div class="beat-dots" id="beat-dots"></div>
-      <div class="phase-progress">
-        <div class="phase-progress-fill" id="phase-progress-fill"></div>
-      </div>
-      <div class="phase-indicator" id="phase-indicator">
-        <div class="phase-chip" id="phase-base">BASE</div>
-        <div class="phase-chip" id="phase-fast">FAST ×2</div>
-      </div>
-      <div class="bar-counter" id="bar-counter"></div>
-    </section>
-
     <section class="bpm-section">
       <button class="bpm-btn" id="bpm-dec" aria-label="Decrease BPM">−</button>
       <div class="bpm-display">
@@ -86,6 +71,7 @@
           <option value="eighth">Eighth</option>
           <option value="triplet">Triplet</option>
           <option value="sixteenth">Sixteenth</option>
+          <option value="sixteenth-triplet">16th Triplet</option>
         </select>
       </div>
       <div class="control-row">
@@ -127,6 +113,21 @@
           <input class="volume-slider" id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
         </div>
       </div>
+    </section>
+
+    <section class="visualizer">
+      <button class="beat-flash" id="beat-flash" type="button" aria-label="Start">
+        <span class="transport-icon" id="transport-icon" aria-hidden="true">▶</span>
+      </button>
+      <div class="beat-dots" id="beat-dots"></div>
+      <div class="phase-progress">
+        <div class="phase-progress-fill" id="phase-progress-fill"></div>
+      </div>
+      <div class="phase-indicator" id="phase-indicator">
+        <div class="phase-chip" id="phase-base">BASE</div>
+        <div class="phase-chip" id="phase-fast">FAST ×2</div>
+      </div>
+      <div class="bar-counter" id="bar-counter"></div>
     </section>
 
   </main>

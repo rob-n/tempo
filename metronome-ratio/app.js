@@ -5,7 +5,7 @@ import { loadSettings, saveSettings } from '../shared/storage.js';
 const BEATS_PER_BAR = { '4/4': 4, '3/4': 3, '6/8': 6 };
 
 // How many scheduler ticks per notated beat for each subdivision.
-const SUBDIV_MULT = { quarter: 1, eighth: 2, triplet: 3, sixteenth: 4 };
+const SUBDIV_MULT = { quarter: 1, eighth: 2, triplet: 3, sixteenth: 4, 'sixteenth-triplet': 6 };
 
 const STORAGE_KEY = 'metronome';
 const DEFAULTS = {
