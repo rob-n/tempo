@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-  <title>Ratio Metronome</title>
+  <title>Metronome</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
 
     <header class="app-header">
       <a href="../" class="back-link">← Tools</a>
-      <h1 class="app-title">Ratio Metronome</h1>
+      <h1 class="app-title">Metronome</h1>
       <div class="session-timer" id="session-timer">0:00</div>
     </header>
 
@@ -24,7 +24,7 @@
       <div class="phase-progress">
         <div class="phase-progress-fill" id="phase-progress-fill"></div>
       </div>
-      <div class="phase-indicator">
+      <div class="phase-indicator" id="phase-indicator">
         <div class="phase-chip" id="phase-base">BASE</div>
         <div class="phase-chip" id="phase-fast">FAST ×2</div>
       </div>
@@ -52,8 +52,13 @@
 
     <button class="tap-btn" id="tap-btn">Tap Tempo</button>
 
+    <div class="mode-toggle" role="group" aria-label="Metronome mode">
+      <button class="mode-btn active" id="mode-standard" aria-pressed="true">Standard</button>
+      <button class="mode-btn" id="mode-burst" aria-pressed="false">Burst</button>
+    </div>
+
     <section class="sound-controls">
-      <div class="control-row">
+      <div class="control-row" id="bars-row">
         <label class="control-label" for="bars-select">Bars</label>
         <select class="control-select" id="bars-select">
           <option value="1">1</option>

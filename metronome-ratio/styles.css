@@ -286,6 +286,38 @@ body {
 }
 .tap-btn:active { background: var(--border); }
 
+/* ─── Mode toggle ───────────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.mode-btn {
+  flex: 1;
+  height: 36px;
+  border: none;
+  border-radius: 100px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: 0.03em;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-btn.active {
+  background: var(--accent);
+  color: #0d0d0f;
+}
+.mode-btn:not(.active):active { background: var(--border); }
+
 /* ─── Sound controls ────────────────────────────────────── */
 .sound-controls {
   background: var(--surface);

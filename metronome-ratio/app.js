@@ -5,7 +5,6 @@ import { loadSettings, saveSettings } from '../shared/storage.js';
 const BEATS_PER_BAR = { '4/4': 4, '3/4': 3, '6/8': 6 };
 
 // How many scheduler ticks per notated beat for each subdivision.
-// Changing the ratio here is all it takes to add a new subdivision.
 const SUBDIV_MULT = { quarter: 1, eighth: 2, triplet: 3, sixteenth: 4 };
 
 const STORAGE_KEY = 'metronome';
@@ -19,6 +18,7 @@ const DEFAULTS = {
   barsPerPhase:  2,
   stopAfterMins: 0,        // 0 = play indefinitely
   ratio:         2,        // not in UI yet; edit here to try 1.5×, 3×, etc.
+  mode:          'standard',
 };
 
 // ─── State ───────────────────────────────────────────────────
@@ -35,27 +35,31 @@ let timerInterval      = null;
 let elapsedSeconds     = 0;
 
 // ─── DOM ─────────────────────────────────────────────────────
-const $bpmInput    = document.getElementById('bpm-input');
-const $bpmDec      = document.getElementById('bpm-dec');
-const $bpmInc      = document.getElementById('bpm-inc');
-const $timeSig     = document.getElementById('time-sig');
-const $subdivSel   = document.getElementById('subdiv-select');
-const $subVolSel   = document.getElementById('sub-vol-select');
-const $sound       = document.getElementById('sound-select');
-const $volume      = document.getElementById('volume');
-const $barsSelect  = document.getElementById('bars-select');
-const $tapBtn        = document.getElementById('tap-btn');
-const $flash         = document.getElementById('beat-flash');
-const $transportIcon = document.getElementById('transport-icon');
-const $dotsEl      = document.getElementById('beat-dots');
-const $phaseBase   = document.getElementById('phase-base');
-const $phaseFast   = document.getElementById('phase-fast');
-const $barCounter    = document.getElementById('bar-counter');
-const $progressFill  = document.getElementById('phase-progress-fill');
-const $timer         = document.getElementById('session-timer');
-const $stopAfter     = document.getElementById('stop-after');
-const $expanderBtn   = document.getElementById('expander-btn');
-const $expanderBody  = document.getElementById('expander-body');
+const $bpmInput       = document.getElementById('bpm-input');
+const $bpmDec         = document.getElementById('bpm-dec');
+const $bpmInc         = document.getElementById('bpm-inc');
+const $timeSig        = document.getElementById('time-sig');
+const $subdivSel      = document.getElementById('subdiv-select');
+const $subVolSel      = document.getElementById('sub-vol-select');
+const $sound          = document.getElementById('sound-select');
+const $volume         = document.getElementById('volume');
+const $barsSelect     = document.getElementById('bars-select');
+const $tapBtn         = document.getElementById('tap-btn');
+const $flash          = document.getElementById('beat-flash');
+const $transportIcon  = document.getElementById('transport-icon');
+const $dotsEl         = document.getElementById('beat-dots');
+const $phaseIndicator = document.getElementById('phase-indicator');
+const $phaseBase      = document.getElementById('phase-base');
+const $phaseFast      = document.getElementById('phase-fast');
+const $barCounter     = document.getElementById('bar-counter');
+const $progressFill   = document.getElementById('phase-progress-fill');
+const $timer          = document.getElementById('session-timer');
+const $stopAfter      = document.getElementById('stop-after');
+const $expanderBtn    = document.getElementById('expander-btn');
+const $expanderBody   = document.getElementById('expander-body');
+const $barsRow        = document.getElementById('bars-row');
+const $modeStd        = document.getElementById('mode-standard');
+const $modeBurst      = document.getElementById('mode-burst');
 
 // ─── Boot ────────────────────────────────────────────────────
 function init() {
@@ -67,7 +71,26 @@ function init() {
   $sound.value      = settings.sound;
   $volume.value     = settings.volume;
   $barsSelect.value = settings.barsPerPhase;
+  applyMode(settings.mode ?? 'standard', true);
   renderBeatDots();
+}
+
+// ─── Mode ────────────────────────────────────────────────────
+function applyMode(mode, fromInit = false) {
+  if (!fromInit && isRunning) stop();
+  settings.mode = mode;
+  if (!fromInit) saveSettings(STORAGE_KEY, settings);
+
+  const isBurst = mode === 'burst';
+  $modeStd.classList.toggle('active', !isBurst);
+  $modeBurst.classList.toggle('active', isBurst);
+  $modeStd.setAttribute('aria-pressed', String(!isBurst));
+  $modeBurst.setAttribute('aria-pressed', String(isBurst));
+
+  // Burst-only UI
+  $phaseIndicator.hidden = !isBurst;
+  $barCounter.hidden     = !isBurst;
+  $barsRow.hidden        = !isBurst;
 }
 
 // ─── Beat dots ───────────────────────────────────────────────
@@ -86,7 +109,7 @@ function renderBeatDots() {
 function activateDot(index) {
   beatDotEls.forEach((d, i) => {
     d.classList.remove('past', 'active', 'active-accent');
-    if (i < index)      d.classList.add('past');
+    if (i < index)        d.classList.add('past');
     else if (i === index) d.classList.add(index === 0 ? 'active-accent' : 'active');
   });
 }
@@ -183,27 +206,55 @@ function scheduleBeep(time, type) {
 }
 
 // ─── Beat callback ───────────────────────────────────────────
-//
-// The scheduler fires at (bpm × subdivMult) — one tick per subdivision.
-// We decompose the tick index to find:
-//   barInPhase    — which bar within the current phase (for bar counter)
-//   beatInBar     — which notated beat within the bar (for dot position)
-//   subdivInBeat  — which subdivision within the beat (0 = main beat)
-//
-// Phase cycle (in ticks):
-//   subPerPhase = barsPerPhase × beatsPerBar × subdivMult
-//   cycleLen    = 2 × subPerPhase  (base phase then fast phase)
-//
-// BPM switch fires on tick 0 of the incoming phase so the outgoing
-// phase's last beat keeps its own full-length interval.
-//
 function onBeat(beatTime, beatIndex) {
-  const beatsPerBar  = BEATS_PER_BAR[settings.timeSig];
-  const subdivMult   = SUBDIV_MULT[settings.subdivision] ?? 1;
-  const subPerBar    = beatsPerBar * subdivMult;
+  const beatsPerBar = BEATS_PER_BAR[settings.timeSig];
+  const subdivMult  = SUBDIV_MULT[settings.subdivision] ?? 1;
+  const subPerBar   = beatsPerBar * subdivMult;
+
+  if (settings.mode === 'standard') {
+    const subInBar     = beatIndex % subPerBar;
+    const beatInBar    = Math.floor(subInBar / subdivMult);
+    const subdivInBeat = subInBar % subdivMult;
+    const isMainBeat   = subdivInBeat === 0;
+    const isDownbeat   = isMainBeat && beatInBar === 0;
+
+    const type = isDownbeat ? 'accent' : isMainBeat ? 'beat' : 'sub';
+    scheduleClick(beatTime, type);
+
+    if (isMainBeat) {
+      const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
+      setTimeout(() => {
+        $flash.classList.remove('flash-accent', 'flash-beat');
+        void $flash.offsetWidth;
+        $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
+        activateDot(beatInBar);
+        const pct = ((beatInBar + 1) / beatsPerBar) * 100;
+        if (beatInBar === 0) {
+          $progressFill.style.transition = 'none';
+          $progressFill.style.width = '0%';
+          requestAnimationFrame(() => {
+            $progressFill.style.transition = '';
+            $progressFill.style.width = `${pct}%`;
+          });
+        } else {
+          $progressFill.style.width = `${pct}%`;
+        }
+      }, msAhead);
+    }
+    return;
+  }
+
+  // ── Burst mode ───────────────────────────────────────────────
+  //
+  // Phase cycle (in ticks):
+  //   subPerPhase = barsPerPhase × beatsPerBar × subdivMult
+  //   cycleLen    = 2 × subPerPhase  (base phase then fast phase)
+  //
+  // BPM switch fires on tick 0 of the incoming phase so the outgoing
+  // phase's last beat keeps its own full-length interval.
+  //
   const subPerPhase  = settings.barsPerPhase * subPerBar;
   const cycleLen     = 2 * subPerPhase;
-
   const subInCycle   = beatIndex % cycleLen;
   const isBase       = subInCycle < subPerPhase;
   const subInPhase   = isBase ? subInCycle : subInCycle - subPerPhase;
@@ -216,7 +267,6 @@ function onBeat(beatTime, beatIndex) {
 
   currentPhaseIsBase = isBase;
 
-  // Switch tempo on tick 0 of each phase (no-op on the very first tick).
   if (subInPhase === 0) {
     scheduler.setBPM(schedulerBPM(isBase));
   }
@@ -224,7 +274,6 @@ function onBeat(beatTime, beatIndex) {
   const type = isDownbeat ? 'accent' : isMainBeat ? 'beat' : 'sub';
   scheduleClick(beatTime, type);
 
-  // Visuals only update on main beats to avoid overwhelming flicker.
   if (isMainBeat) {
     const msAhead = Math.max(0, (beatTime - audioCtx.currentTime) * 1000);
     setTimeout(() => {
@@ -238,14 +287,14 @@ function onBeat(beatTime, beatIndex) {
   }
 }
 
-// ─── Phase UI ────────────────────────────────────────────────
+// ─── Phase UI (burst only) ───────────────────────────────────
 function updatePhaseUI(isBase, barNum, totalBars) {
   $phaseBase.classList.toggle('active-chip', isBase);
   $phaseFast.classList.toggle('active-chip', !isBase);
   $barCounter.textContent = `Bar ${barNum} of ${totalBars}`;
 }
 
-// Progress bar: fills 0→100% across the full phase (all n bars).
+// Progress bar fills 0→100% across the full burst phase (all n bars).
 // At phase start we snap to 0 instantly to avoid animating backwards.
 function updateProgress(barInPhase, beatInBar) {
   const beatsPerBar = BEATS_PER_BAR[settings.timeSig];
@@ -254,7 +303,6 @@ function updateProgress(barInPhase, beatInBar) {
   const pct         = ((beatInPhase + 1) / totalBeats) * 100;
 
   if (beatInPhase === 0) {
-    // Instant reset, then animate to the first beat's position next frame.
     $progressFill.style.transition = 'none';
     $progressFill.style.width = '0%';
     requestAnimationFrame(() => {
@@ -330,7 +378,6 @@ function syncTransportUI() {
 }
 
 // ─── BPM helpers ─────────────────────────────────────────────
-// The scheduler always runs at the notated BPM × subdivision multiplier.
 function schedulerBPM(isBase) {
   const mult = SUBDIV_MULT[settings.subdivision] ?? 1;
   return settings.bpm * (isBase ? 1 : settings.ratio) * mult;
@@ -418,8 +465,6 @@ $stopAfter.addEventListener('change', () => {
   saveSettings(STORAGE_KEY, settings);
 });
 
-// Expander: animate using max-height so the transition works smoothly.
-// The `hidden` attribute prevents the body from being focusable when closed.
 $expanderBtn.addEventListener('click', () => {
   const isOpen = $expanderBtn.getAttribute('aria-expanded') === 'true';
   if (isOpen) {
@@ -456,6 +501,9 @@ $tapBtn.addEventListener('click', handleTap);
 $flash.addEventListener('click', () => {
   isRunning ? stop() : start();
 });
+
+$modeStd.addEventListener('click', () => applyMode('standard'));
+$modeBurst.addEventListener('click', () => applyMode('burst'));
 
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && e.target === document.body) {
