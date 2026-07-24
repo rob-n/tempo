@@ -49,8 +49,9 @@ const $flash       = document.getElementById('beat-flash');
 const $dotsEl      = document.getElementById('beat-dots');
 const $phaseBase   = document.getElementById('phase-base');
 const $phaseFast   = document.getElementById('phase-fast');
-const $barCounter  = document.getElementById('bar-counter');
-const $timer       = document.getElementById('session-timer');
+const $barCounter    = document.getElementById('bar-counter');
+const $progressFill  = document.getElementById('phase-progress-fill');
+const $timer         = document.getElementById('session-timer');
 
 // ─── Boot ────────────────────────────────────────────────────
 function init() {
@@ -79,13 +80,14 @@ function renderBeatDots() {
 
 function activateDot(index) {
   beatDotEls.forEach((d, i) => {
-    d.classList.remove('active', 'active-accent');
-    if (i === index) d.classList.add(index === 0 ? 'active-accent' : 'active');
+    d.classList.remove('past', 'active', 'active-accent');
+    if (i < index)      d.classList.add('past');
+    else if (i === index) d.classList.add(index === 0 ? 'active-accent' : 'active');
   });
 }
 
 function resetDots() {
-  beatDotEls.forEach(d => d.classList.remove('active', 'active-accent'));
+  beatDotEls.forEach(d => d.classList.remove('past', 'active', 'active-accent'));
 }
 
 // ─── Audio context ───────────────────────────────────────────
@@ -199,6 +201,7 @@ function onBeat(beatTime, beatIndex) {
       void $flash.offsetWidth;
       $flash.classList.add(isDownbeat ? 'flash-accent' : 'flash-beat');
       activateDot(beatInBar);
+      updateProgress(barInPhase, beatInBar);
       updatePhaseUI(isBase, barInPhase + 1, settings.barsPerPhase);
     }, msAhead);
   }
@@ -211,10 +214,33 @@ function updatePhaseUI(isBase, barNum, totalBars) {
   $barCounter.textContent = `Bar ${barNum} of ${totalBars}`;
 }
 
+// Progress bar: fills 0→100% across the full phase (all n bars).
+// At phase start we snap to 0 instantly to avoid animating backwards.
+function updateProgress(barInPhase, beatInBar) {
+  const beatsPerBar = BEATS_PER_BAR[settings.timeSig];
+  const totalBeats  = settings.barsPerPhase * beatsPerBar;
+  const beatInPhase = barInPhase * beatsPerBar + beatInBar;
+  const pct         = ((beatInPhase + 1) / totalBeats) * 100;
+
+  if (beatInPhase === 0) {
+    // Instant reset, then animate to the first beat's position next frame.
+    $progressFill.style.transition = 'none';
+    $progressFill.style.width = '0%';
+    requestAnimationFrame(() => {
+      $progressFill.style.transition = '';
+      $progressFill.style.width = `${pct}%`;
+    });
+  } else {
+    $progressFill.style.width = `${pct}%`;
+  }
+}
+
 function resetPhaseUI() {
   $phaseBase.classList.remove('active-chip');
   $phaseFast.classList.remove('active-chip');
   $barCounter.textContent = '';
+  $progressFill.style.transition = 'none';
+  $progressFill.style.width = '0%';
 }
 
 // ─── Session timer ───────────────────────────────────────────
