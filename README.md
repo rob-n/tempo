@@ -10,6 +10,16 @@ A static-site collection of small practice/utility tools for musicians, hosted o
   index.html                 Ratio-training metronome UI
   app.js                     Metronome app logic
   styles.css                 Metronome styles
+/fretboard-trainer/
+  index.html                 Fretboard/scale trainer UI
+  app.js                     Tab switching + settings orchestration
+  scales-data.js             Scale/tuning/string-set data
+  fretboard-model.js         Pure scale-position math (no DOM)
+  fretboard-render.js        Fretboard grid rendering (no scale logic)
+  srs.js                     Spaced-repetition scheduling (no DOM)
+  drill.js                   Drill mode controller
+  reference.js               Reference mode controller
+  styles.css                 Fretboard trainer styles
 /shared/
   audio-scheduler.js         Reusable lookahead beat scheduler (Web Audio API)
   storage.js                 Reusable localStorage get/set helpers
