@@ -69,21 +69,25 @@ function makeFretCell({ stringIndex, fret, match, interactive, showDegrees, onTa
       onTap?.(stringIndex, fret, selected);
     });
   } else if (match && showDegrees) {
-    el.textContent = match.degree;
+    el.innerHTML = cellLabelHTML(match);
   }
 
   return el;
 }
 
+function cellLabelHTML(match) {
+  return `<span class="note-name">${match.note}</span><span class="degree-name">${match.degree}</span>`;
+}
+
 /**
  * After grading a drill rep, mark each tappable cell correct/wrong/missed.
  * @param {HTMLElement} container
- * @param {{correctCells: {stringIndex:number, fret:number, degree:string}[], selectedCells: {stringIndex:number, fret:number}[]}} result
+ * @param {{correctCells: {stringIndex:number, fret:number, note:string, degree:string}[], selectedCells: {stringIndex:number, fret:number}[]}} result
  */
 export function markResult(container, { correctCells, selectedCells }) {
   const correctKeys = new Set(correctCells.map((c) => cellKey(c.stringIndex, c.fret)));
   const selectedKeys = new Set(selectedCells.map((c) => cellKey(c.stringIndex, c.fret)));
-  const degreeByKey = new Map(correctCells.map((c) => [cellKey(c.stringIndex, c.fret), c.degree]));
+  const matchByKey = new Map(correctCells.map((c) => [cellKey(c.stringIndex, c.fret), c]));
 
   for (const el of container.querySelectorAll('.tappable')) {
     const key = cellKey(Number(el.dataset.string), Number(el.dataset.fret));
@@ -93,7 +97,7 @@ export function markResult(container, { correctCells, selectedCells }) {
     if (isCorrect && isSelected) el.classList.add('correct');
     else if (isCorrect && !isSelected) el.classList.add('missed');
     else if (!isCorrect && isSelected) el.classList.add('wrong');
-    if (isCorrect) el.textContent = degreeByKey.get(key);
+    if (isCorrect) el.innerHTML = cellLabelHTML(matchByKey.get(key));
   }
 }
 

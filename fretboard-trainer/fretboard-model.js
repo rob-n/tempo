@@ -43,7 +43,7 @@ export function pitchClassAt(tuning, stringIndex, fret) {
  * @param {number} params.rootPc pitch class of the root, 0-11
  * @param {{startFret:number, endFret:number}} params.window
  * @param {number[]} params.stringIndices which strings to include
- * @returns {{stringIndex:number, fret:number, pc:number, degree:string, isRoot:boolean}[]}
+ * @returns {{stringIndex:number, fret:number, pc:number, note:string, degree:string, isRoot:boolean}[]}
  */
 export function buildCellMatrix({ tuning, scale, rootPc, window, stringIndices }) {
   const intervalSet = new Set(scale.intervals);
@@ -57,6 +57,7 @@ export function buildCellMatrix({ tuning, scale, rootPc, window, stringIndices }
         stringIndex: s,
         fret: f,
         pc,
+        note: NOTE_NAMES[pc],
         degree: scale.degrees[scale.intervals.indexOf(rel)],
         isRoot: rel === 0,
       });
