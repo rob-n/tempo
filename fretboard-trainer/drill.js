@@ -208,4 +208,6 @@ export function initDrill(root, settings, persist) {
 
   renderStats();
   nextRep();
+
+  return { refresh: nextRep };
 }

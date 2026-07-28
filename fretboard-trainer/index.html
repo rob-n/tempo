@@ -19,6 +19,26 @@
       <button class="mode-btn" id="tab-reference" role="tab" aria-selected="false" aria-controls="reference-view">Reference</button>
     </div>
 
+    <div class="settings-box">
+      <button class="expander-btn" id="settings-expander-btn" aria-expanded="false" aria-controls="settings-expander-body">
+        <span>Settings</span>
+        <span class="expander-icon" aria-hidden="true">&rsaquo;</span>
+      </button>
+      <div class="expander-body" id="settings-expander-body" hidden>
+        <div class="control-row">
+          <span class="control-label">Tuning</span>
+          <select class="control-select" id="tuning-select"></select>
+        </div>
+        <div class="control-row">
+          <span class="control-label">Sharps/flats</span>
+          <input type="checkbox" id="accidentals-toggle">
+        </div>
+        <div class="control-row">
+          <button type="button" class="tap-btn danger" id="reset-progress-btn">Reset progress</button>
+        </div>
+      </div>
+    </div>
+
     <main class="views">
       <section id="drill-view" class="view" role="tabpanel" aria-labelledby="tab-drill"></section>
       <section id="reference-view" class="view" role="tabpanel" aria-labelledby="tab-reference" hidden></section>

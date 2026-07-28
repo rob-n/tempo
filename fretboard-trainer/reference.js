@@ -109,4 +109,5 @@ export function initReference(root, settings, persist) {
   }
 
   render();
+  return { refresh: render };
 }

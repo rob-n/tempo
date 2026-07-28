@@ -107,13 +107,14 @@ body {
 }
 
 /* ─── Reference/drill controls ─────────────────────────── */
-.ref-controls {
+.ref-controls,
+.settings-box {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  margin-bottom: 16px;
 }
+.ref-controls { margin-bottom: 16px; }
 
 .control-row {
   display: flex;
@@ -169,6 +170,46 @@ body {
   letter-spacing: 0.02em;
 }
 .tap-btn:active { background: var(--border); }
+
+.tap-btn.danger { border-color: #e5484d; color: #e5484d; }
+.tap-btn.danger:active { background: rgba(229, 72, 77, 0.15); }
+
+/* ─── Expander ──────────────────────────────────────────── */
+.expander-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+.expander-btn:active { background: var(--border); }
+
+.expander-icon {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 18px;
+  line-height: 1;
+}
+.expander-btn[aria-expanded="true"] .expander-icon {
+  transform: rotate(90deg);
+}
+
+.expander-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease-out;
+}
+.expander-body .control-row { border-top: 1px solid var(--border); }
 
 /* ─── Fretboard grid ────────────────────────────────────── */
 .fretboard-scroll {
@@ -256,6 +297,12 @@ body {
 
 /* ─── Drill mode ────────────────────────────────────────── */
 .drill-stage-label {
+  width: fit-content;
+  margin: 0 auto;
+  padding: 4px 14px;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
   font-size: 12px;
   color: var(--text-dim);
   text-align: center;

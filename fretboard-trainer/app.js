@@ -1,4 +1,5 @@
 import { saveSettings, loadSettings } from '../shared/storage.js';
+import { TUNINGS } from './scales-data.js';
 import { initReference } from './reference.js';
 import { initDrill } from './drill.js';
 
@@ -17,6 +18,11 @@ const $tabDrill = document.getElementById('tab-drill');
 const $tabReference = document.getElementById('tab-reference');
 const $drillView = document.getElementById('drill-view');
 const $referenceView = document.getElementById('reference-view');
+const $settingsExpanderBtn = document.getElementById('settings-expander-btn');
+const $settingsExpanderBody = document.getElementById('settings-expander-body');
+const $tuningSelect = document.getElementById('tuning-select');
+const $accidentalsToggle = document.getElementById('accidentals-toggle');
+const $resetProgressBtn = document.getElementById('reset-progress-btn');
 
 // ─── Settings ──────────────────────────────────────────────
 // loadSettings merges top-level keys, but nested objects are replaced
@@ -32,8 +38,8 @@ function persist() {
   saveSettings(STORAGE_KEY, settings);
 }
 
-initReference($referenceView, settings, persist);
-initDrill($drillView, settings, persist);
+const referenceApi = initReference($referenceView, settings, persist);
+const drillApi = initDrill($drillView, settings, persist);
 
 // ─── Tab switching ─────────────────────────────────────────
 function setView(view) {
@@ -53,3 +59,51 @@ $tabDrill.addEventListener('click', () => setView('drill'));
 $tabReference.addEventListener('click', () => setView('reference'));
 
 setView(settings.view);
+
+// ─── Settings panel ────────────────────────────────────────
+for (const [key, t] of Object.entries(TUNINGS)) {
+  $tuningSelect.appendChild(new Option(t.label, key));
+}
+$tuningSelect.value = settings.tuningKey;
+$accidentalsToggle.checked = settings.includeAccidentals;
+
+$tuningSelect.addEventListener('change', () => {
+  settings.tuningKey = $tuningSelect.value;
+  persist();
+  referenceApi.refresh();
+  drillApi.refresh();
+});
+
+$accidentalsToggle.addEventListener('change', () => {
+  settings.includeAccidentals = $accidentalsToggle.checked;
+  persist();
+});
+
+$resetProgressBtn.addEventListener('click', () => {
+  const confirmed = window.confirm('Reset all drill progress? This clears spaced-repetition history and the difficulty ramp.');
+  if (!confirmed) return;
+  settings.ramp = { ...DEFAULTS.ramp };
+  settings.srs = { ...DEFAULTS.srs, items: {} };
+  persist();
+  drillApi.refresh();
+});
+
+$settingsExpanderBtn.addEventListener('click', () => {
+  const isOpen = $settingsExpanderBtn.getAttribute('aria-expanded') === 'true';
+  if (isOpen) {
+    $settingsExpanderBody.style.maxHeight = $settingsExpanderBody.scrollHeight + 'px';
+    requestAnimationFrame(() => {
+      $settingsExpanderBody.style.maxHeight = '0';
+      $settingsExpanderBody.addEventListener('transitionend', () => {
+        $settingsExpanderBody.hidden = true;
+      }, { once: true });
+    });
+    $settingsExpanderBtn.setAttribute('aria-expanded', 'false');
+  } else {
+    $settingsExpanderBody.hidden = false;
+    requestAnimationFrame(() => {
+      $settingsExpanderBody.style.maxHeight = $settingsExpanderBody.scrollHeight + 'px';
+    });
+    $settingsExpanderBtn.setAttribute('aria-expanded', 'true');
+  }
+});
