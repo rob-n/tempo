@@ -66,6 +66,25 @@ Alternates between a base tempo and a faster tempo (default ×2) for a set numbe
 
 **Settings** persist to `localStorage` across reloads (BPM, time sig, subdivision, bars, sound, volume, stop timer).
 
+## Fretboard Trainer
+
+Learns scale shapes across the neck via spaced-repetition drilling, plus a static reference view for quick lookup. Defaults to an 8-string tuned in standard extended range (F#–B–E–A–D–G–B–E); also supports standard 6-string.
+
+**Drill mode**
+- Shows a root + scale name and a blank, tappable region of the fretboard; tap every scale tone in that region, then Check.
+- A pattern you've never drilled before is shown once as a labeled study card ("Got it — quiz me") before being tested blind — cold-testing something you've never seen isn't retrieval practice, it's guessing.
+- A Leitner-style scheduler tracks each (scale, root, string set, position) combination independently: misses resurface almost immediately, correct answers push it further out (hours, then days).
+- Picks interleave scale type/root/position rather than blocking repeats of the same one, and a difficulty ramp (gated on total correct reps) progressively removes the root-note hint, widens the string range from the standard low-E-up range to the full extended range, and adds a countdown timer.
+- Stats line shows total correct reps and overall accuracy.
+
+**Reference mode**
+- Pick a scale, root, string set, and position (or toggle "Full neck" for the whole range, horizontally scrollable) to see a static labeled diagram — no quiz, just lookup.
+
+**Settings** (expander, top of page)
+- Tuning selector, a "sharps/flats" toggle for whether the drill's root pool includes accidentals (off by default), and a reset-progress action that clears spaced-repetition/ramp state.
+
+**Settings** persist to `localStorage` across reloads (tuning, accidentals toggle, reference-view selections, drill ramp progress, per-item spaced-repetition state).
+
 ## Adding a new tool
 
 1. Create a new folder at the repo root (e.g. `/chord-trainer/`).
