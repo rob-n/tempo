@@ -269,6 +269,19 @@ body {
   margin-bottom: 4px;
 }
 
+.drill-badge-new {
+  display: inline-block;
+  background: var(--accent);
+  color: #0d0d0f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 100px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
 .drill-timer {
   text-align: center;
   font-size: 14px;

@@ -26,12 +26,17 @@ export const BUCKETS = [
 // low-E-and-up range (`core4`/`core6`), not the literal lowest strings —
 // on an extended-range instrument those are the extra low strings, the
 // least familiar ones, so they're introduced last (`all`, stage 4+).
+// `windowIndices: null` means "every position on the neck"; the earliest
+// stages restrict to position 1 (frets 0-5), then 1-2, before opening up —
+// same reasoning as learning one CAGED box before moving up the neck,
+// and it shrinks the early pool enough that items actually resurface
+// within a single sitting instead of every rep being brand new.
 export const RAMP_STAGES = [
-  { minReps: 0, showRoot: true, stringSet: 'core4', timeLimitMs: null, scaleKeys: ['minorPentatonic', 'majorPentatonic'] },
-  { minReps: 20, showRoot: true, stringSet: 'core6', timeLimitMs: null, scaleKeys: ['minorPentatonic', 'majorPentatonic', 'blues'] },
-  { minReps: 50, showRoot: false, stringSet: 'core6', timeLimitMs: null, scaleKeys: null },
-  { minReps: 100, showRoot: false, stringSet: 'all', timeLimitMs: 12000, scaleKeys: null },
-  { minReps: 200, showRoot: false, stringSet: 'all', timeLimitMs: 8000, scaleKeys: null },
+  { minReps: 0, showRoot: true, stringSet: 'core4', timeLimitMs: null, scaleKeys: ['minorPentatonic', 'majorPentatonic'], windowIndices: [0] },
+  { minReps: 20, showRoot: true, stringSet: 'core6', timeLimitMs: null, scaleKeys: ['minorPentatonic', 'majorPentatonic', 'blues'], windowIndices: [0, 1] },
+  { minReps: 50, showRoot: false, stringSet: 'core6', timeLimitMs: null, scaleKeys: null, windowIndices: null },
+  { minReps: 100, showRoot: false, stringSet: 'all', timeLimitMs: 12000, scaleKeys: null, windowIndices: null },
+  { minReps: 200, showRoot: false, stringSet: 'all', timeLimitMs: 8000, scaleKeys: null, windowIndices: null },
 ];
 
 export function currentStage(totalCorrectReps) {
@@ -47,9 +52,9 @@ export function itemKey({ scaleKey, rootPc, stringSetKey, windowIndex }) {
  * on the fly — never pre-populated into storage. `items` records are only
  * created lazily, for keys actually drilled.
  */
-export function buildPool({ stringSetKey, includeAccidentals, scaleKeys }) {
+export function buildPool({ stringSetKey, includeAccidentals, scaleKeys, windowIndices }) {
   const roots = includeAccidentals ? [...Array(12).keys()] : NATURAL_ROOTS;
-  const windows = getPositionWindows();
+  const windows = getPositionWindows().filter((w) => !windowIndices || windowIndices.includes(w.index));
   const pool = [];
   for (const scaleKey of scaleKeys ?? Object.keys(SCALES)) {
     for (const rootPc of roots) {

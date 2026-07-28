@@ -3,6 +3,12 @@
  * capture taps → grade → record the result → advance. Wires together the
  * pure scale math (fretboard-model.js), the DOM grid (fretboard-render.js),
  * and the scheduler (srs.js) — no scale or scheduling logic lives here.
+ *
+ * A brand-new item (never recorded in settings.srs.items) is shown once as
+ * a labeled study card before being quizzed blind — testing recall of
+ * something you've genuinely never seen isn't retrieval practice, it's
+ * guessing. Once an item has a record, every subsequent encounter goes
+ * straight to a blind quiz as normal spaced repetition.
  */
 
 import { NOTE_NAMES, TUNINGS, SCALES, STRING_SETS, STRING_SET_LABELS } from './scales-data.js';
@@ -38,10 +44,10 @@ export function initDrill(root, settings, persist) {
   const recentHistory = [];
   /** @type {Map<string, {stringIndex:number, fret:number}>} */
   let selected = new Map();
-  let current = null; // { candidate, stage, requiredCells }
+  let current = null; // { candidate, stage, scale, tuning, window, stringIndices, cellMatrix, requiredCells }
   let repStartTime = 0;
   let timerId = null;
-  let graded = false;
+  let mode = 'study'; // 'study' | 'answering' | 'graded'
 
   function tuning() {
     return TUNINGS[settings.tuningKey];
@@ -64,7 +70,8 @@ export function initDrill(root, settings, persist) {
     const strings = STRING_SET_LABELS[stage.stringSet] ?? stage.stringSet;
     const hint = stage.showRoot ? 'root shown' : 'no root hint';
     const timing = stage.timeLimitMs ? `${Math.round(stage.timeLimitMs / 1000)}s limit` : 'no time limit';
-    return `${strings} · ${hint} · ${timing}`;
+    const scope = stage.windowIndices ? `${stage.windowIndices.length} position${stage.windowIndices.length > 1 ? 's' : ''}` : 'all positions';
+    return `${strings} · ${scope} · ${hint} · ${timing}`;
   }
 
   function clearTimer() {
@@ -90,7 +97,7 @@ export function initDrill(root, settings, persist) {
   }
 
   function onTap(stringIndex, fret, isSelected) {
-    if (graded) return;
+    if (mode !== 'answering') return;
     const key = `${stringIndex}:${fret}`;
     if (isSelected) selected.set(key, { stringIndex, fret });
     else selected.delete(key);
@@ -102,15 +109,15 @@ export function initDrill(root, settings, persist) {
     cellEl.innerHTML = `<span class="note-name">${cell.note}</span><span class="degree-name">R</span>`;
   }
 
-  function nextRep() {
-    clearTimer();
-    graded = false;
-    selected = new Map();
-    $actionBtn.textContent = 'Check';
-    $timer.hidden = true;
-
+  /** Pick the next item from the scheduler and derive its geometry — no rendering. */
+  function buildRep() {
     const stage = currentStage(settings.ramp.totalCorrectReps);
-    const pool = buildPool({ stringSetKey: stage.stringSet, includeAccidentals: settings.includeAccidentals, scaleKeys: stage.scaleKeys });
+    const pool = buildPool({
+      stringSetKey: stage.stringSet,
+      includeAccidentals: settings.includeAccidentals,
+      scaleKeys: stage.scaleKeys,
+      windowIndices: stage.windowIndices,
+    });
     const candidate = pickNext(pool, settings.srs.items, recentHistory, settings.srs.globalRepCounter);
     recentHistory.push(candidate);
     if (recentHistory.length > HISTORY_LENGTH) recentHistory.shift();
@@ -121,13 +128,39 @@ export function initDrill(root, settings, persist) {
     const stringIndices = STRING_SETS[candidate.stringSetKey](t.strings.length);
     const cellMatrix = buildCellMatrix({ tuning: t, scale, rootPc: candidate.rootPc, window, stringIndices });
     const requiredCells = stage.showRoot ? cellMatrix.filter((c) => !c.isRoot) : cellMatrix;
+    const isNew = !(candidate.key in settings.srs.items);
 
-    current = { candidate, stage, requiredCells };
+    return { candidate, stage, scale, tuning: t, window, stringIndices, cellMatrix, requiredCells, isNew };
+  }
+
+  function nextRep() {
+    clearTimer();
+    selected = new Map();
+    $timer.hidden = true;
+    current = buildRep();
+    if (current.isNew) showStudyCard();
+    else showQuiz();
+  }
+
+  /** Labeled, non-interactive view of a brand-new pattern — no grading, no timer. */
+  function showStudyCard() {
+    mode = 'study';
+    const { candidate, stage, scale, tuning: t, window, stringIndices, cellMatrix } = current;
+
+    $stageLabel.textContent = stageLabelText(stage);
+    $prompt.innerHTML = `<span class="drill-badge-new">NEW</span> ${NOTE_NAMES[candidate.rootPc]} ${scale.label} — study the shape`;
+    renderFretboard($fretboard, { tuning: t, window, stringIndices, cellMatrix, interactive: false, showDegrees: true });
+    $actionBtn.textContent = 'Got it — quiz me';
+  }
+
+  /** Blank, tappable version of the same rep — this is what actually gets graded. */
+  function showQuiz() {
+    mode = 'answering';
+    const { candidate, stage, scale, tuning: t, window, stringIndices, cellMatrix } = current;
     repStartTime = Date.now();
 
     $stageLabel.textContent = stageLabelText(stage);
     $prompt.textContent = `Find: ${NOTE_NAMES[candidate.rootPc]} ${scale.label}`;
-
     renderFretboard($fretboard, { tuning: t, window, stringIndices, cellMatrix, interactive: true, showDegrees: false, onTap });
 
     if (stage.showRoot) {
@@ -136,14 +169,14 @@ export function initDrill(root, settings, persist) {
       if (rootEl) markGiven(rootEl, rootCell);
     }
 
+    $actionBtn.textContent = 'Check';
     if (stage.timeLimitMs) startTimer(stage.timeLimitMs);
-
     renderStats();
   }
 
   function grade() {
-    if (graded) return;
-    graded = true;
+    if (mode !== 'answering') return;
+    mode = 'graded';
     clearTimer();
 
     const { candidate, requiredCells, stage } = current;
@@ -168,9 +201,11 @@ export function initDrill(root, settings, persist) {
   }
 
   $actionBtn.addEventListener('click', () => {
-    if (graded) nextRep();
-    else grade();
+    if (mode === 'study') showQuiz();
+    else if (mode === 'answering') grade();
+    else nextRep();
   });
 
+  renderStats();
   nextRep();
 }
