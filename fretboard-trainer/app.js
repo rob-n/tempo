@@ -1,10 +1,14 @@
 import { saveSettings, loadSettings } from '../shared/storage.js';
 import { initReference } from './reference.js';
+import { initDrill } from './drill.js';
 
 const STORAGE_KEY = 'fretboard';
 const DEFAULTS = {
   view: 'drill',
   tuningKey: '8-string-standard',
+  includeAccidentals: false,
+  ramp: { totalCorrectReps: 0 },
+  srs: { globalRepCounter: 0, items: {} },
   reference: { scaleKey: 'major', rootPc: 0, windowIndex: 0, stringSetKey: 'all', fullNeck: false },
 };
 
@@ -21,12 +25,15 @@ const $referenceView = document.getElementById('reference-view');
 // silently missing on existing saved data.
 const settings = loadSettings(STORAGE_KEY, DEFAULTS);
 settings.reference = { ...DEFAULTS.reference, ...settings.reference };
+settings.ramp = { ...DEFAULTS.ramp, ...settings.ramp };
+settings.srs = { ...DEFAULTS.srs, ...settings.srs, items: settings.srs?.items ?? {} };
 
 function persist() {
   saveSettings(STORAGE_KEY, settings);
 }
 
 initReference($referenceView, settings, persist);
+initDrill($drillView, settings, persist);
 
 // ─── Tab switching ─────────────────────────────────────────
 function setView(view) {

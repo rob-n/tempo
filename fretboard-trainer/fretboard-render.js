@@ -56,20 +56,23 @@ function makeCell(className, text) {
 
 function makeFretCell({ stringIndex, fret, match, interactive, showDegrees, onTap }) {
   const el = document.createElement(interactive ? 'button' : 'div');
-  el.className = 'cell' + (match ? ' scale-tone' : ' empty');
-  if (match?.isRoot) el.classList.add('is-root');
   el.dataset.string = String(stringIndex);
   el.dataset.fret = String(fret);
 
   if (interactive) {
+    // Deliberately does NOT vary by `match` — a blank tappable cell must
+    // look identical whether or not it's a correct answer, otherwise the
+    // answer leaks before grading.
+    el.className = 'cell tappable';
     el.type = 'button';
-    el.classList.add('tappable');
     el.addEventListener('click', () => {
       const selected = el.classList.toggle('selected');
       onTap?.(stringIndex, fret, selected);
     });
-  } else if (match && showDegrees) {
-    el.innerHTML = cellLabelHTML(match);
+  } else {
+    el.className = 'cell' + (match ? ' scale-tone' : ' empty');
+    if (match?.isRoot) el.classList.add('is-root');
+    if (match && showDegrees) el.innerHTML = cellLabelHTML(match);
   }
 
   return el;
