@@ -4,7 +4,7 @@
  * file only owns the reference-specific controls and their DOM wiring.
  */
 
-import { NOTE_NAMES, TUNINGS, SCALES, STRING_SETS, MAX_FRET } from './scales-data.js';
+import { NOTE_NAMES, TUNINGS, SCALES, STRING_SETS, STRING_SET_LABELS, MAX_FRET } from './scales-data.js';
 import { getPositionWindows, buildCellMatrix } from './fretboard-model.js';
 import { renderFretboard } from './fretboard-render.js';
 
@@ -56,11 +56,12 @@ export function initReference(root, settings, persist) {
   }
   NOTE_NAMES.forEach((name, pc) => $root.appendChild(new Option(name, String(pc))));
   for (const key of Object.keys(STRING_SETS)) {
-    $stringSet.appendChild(new Option(key[0].toUpperCase() + key.slice(1), key));
+    $stringSet.appendChild(new Option(STRING_SET_LABELS[key] ?? key, key));
   }
   POSITION_WINDOWS.forEach((w) => $window.appendChild(new Option(`Frets ${w.startFret}–${w.endFret}`, String(w.index))));
 
   const r = settings.reference;
+  if (!(r.stringSetKey in STRING_SETS)) r.stringSetKey = 'all'; // guard against a stale key from a previous STRING_SETS shape
   $scale.value = r.scaleKey;
   $root.value = String(r.rootPc);
   $stringSet.value = r.stringSetKey;

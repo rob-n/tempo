@@ -33,12 +33,28 @@ export const SCALES = {
 };
 
 // Bounded string subsets used to keep the drill visually light early on.
-// Generic over string count so they work for 6-string or 8-string alike.
+// "core" sets anchor to the standard 6-string range (low E up), not the
+// lowest string indices — on an extended-range instrument, index 0 is the
+// least-familiar string, not the most fundamental one. `high` is the
+// genuinely highest strings (also familiar), used as its own optional set.
+function coreRange(n, count) {
+  const start = Math.max(0, n - 6); // start of the standard E-A-D-G-B-e range
+  const len = Math.min(count, n - start);
+  return Array.from({ length: len }, (_, i) => start + i);
+}
+
 export const STRING_SETS = {
   all: (n) => Array.from({ length: n }, (_, i) => i),
-  low: (n) => Array.from({ length: Math.min(4, n) }, (_, i) => i),
+  core4: (n) => coreRange(n, 4), // low E, A, D, G
+  core6: (n) => coreRange(n, 6), // full standard range: E A D G B e
   high: (n) => Array.from({ length: Math.min(4, n) }, (_, i) => n - 1 - i).reverse(),
-  mid: (n) => Array.from({ length: Math.min(4, n) }, (_, i) => Math.floor((n - 4) / 2) + i),
+};
+
+export const STRING_SET_LABELS = {
+  all: 'All strings',
+  core4: 'Core 4 (low E–G)',
+  core6: 'Core 6 (standard range)',
+  high: 'Highest 4',
 };
 
 export const POSITION_WINDOW_WIDTH = 5; // frets

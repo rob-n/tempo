@@ -5,7 +5,7 @@
  * and the scheduler (srs.js) — no scale or scheduling logic lives here.
  */
 
-import { NOTE_NAMES, TUNINGS, SCALES, STRING_SETS } from './scales-data.js';
+import { NOTE_NAMES, TUNINGS, SCALES, STRING_SETS, STRING_SET_LABELS } from './scales-data.js';
 import { getPositionWindows, buildCellMatrix } from './fretboard-model.js';
 import { renderFretboard, markResult } from './fretboard-render.js';
 import { currentStage, buildPool, pickNext, recordResult } from './srs.js';
@@ -61,7 +61,7 @@ export function initDrill(root, settings, persist) {
   }
 
   function stageLabelText(stage) {
-    const strings = stage.stringSet === 'all' ? 'All strings' : `${stage.stringSet[0].toUpperCase()}${stage.stringSet.slice(1)} strings`;
+    const strings = STRING_SET_LABELS[stage.stringSet] ?? stage.stringSet;
     const hint = stage.showRoot ? 'root shown' : 'no root hint';
     const timing = stage.timeLimitMs ? `${Math.round(stage.timeLimitMs / 1000)}s limit` : 'no time limit';
     return `${strings} · ${hint} · ${timing}`;
@@ -110,7 +110,7 @@ export function initDrill(root, settings, persist) {
     $timer.hidden = true;
 
     const stage = currentStage(settings.ramp.totalCorrectReps);
-    const pool = buildPool({ stringSetKey: stage.stringSet, includeAccidentals: settings.includeAccidentals });
+    const pool = buildPool({ stringSetKey: stage.stringSet, includeAccidentals: settings.includeAccidentals, scaleKeys: stage.scaleKeys });
     const candidate = pickNext(pool, settings.srs.items, recentHistory, settings.srs.globalRepCounter);
     recentHistory.push(candidate);
     if (recentHistory.length > HISTORY_LENGTH) recentHistory.shift();

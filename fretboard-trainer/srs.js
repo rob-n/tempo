@@ -18,12 +18,20 @@ export const BUCKETS = [
 
 // Difficulty ramp, gated on a single global correct-rep counter. Adding or
 // tuning a stage is a one-line edit here — nothing else needs to change.
+// `scaleKeys: null` means "all scales in scales-data.js". Early stages are
+// deliberately narrowed to pentatonic (the most universally familiar scale
+// shapes) so there's something to succeed at before the pool widens —
+// otherwise interleaving all 5 scale types from rep one just produces
+// misses with nothing reinforced. String range starts on the standard
+// low-E-and-up range (`core4`/`core6`), not the literal lowest strings —
+// on an extended-range instrument those are the extra low strings, the
+// least familiar ones, so they're introduced last (`all`, stage 4+).
 export const RAMP_STAGES = [
-  { minReps: 0, showRoot: true, stringSet: 'low', timeLimitMs: null },
-  { minReps: 20, showRoot: true, stringSet: 'mid', timeLimitMs: null },
-  { minReps: 50, showRoot: false, stringSet: 'mid', timeLimitMs: null },
-  { minReps: 100, showRoot: false, stringSet: 'all', timeLimitMs: 12000 },
-  { minReps: 200, showRoot: false, stringSet: 'all', timeLimitMs: 8000 },
+  { minReps: 0, showRoot: true, stringSet: 'core4', timeLimitMs: null, scaleKeys: ['minorPentatonic', 'majorPentatonic'] },
+  { minReps: 20, showRoot: true, stringSet: 'core6', timeLimitMs: null, scaleKeys: ['minorPentatonic', 'majorPentatonic', 'blues'] },
+  { minReps: 50, showRoot: false, stringSet: 'core6', timeLimitMs: null, scaleKeys: null },
+  { minReps: 100, showRoot: false, stringSet: 'all', timeLimitMs: 12000, scaleKeys: null },
+  { minReps: 200, showRoot: false, stringSet: 'all', timeLimitMs: 8000, scaleKeys: null },
 ];
 
 export function currentStage(totalCorrectReps) {
@@ -39,11 +47,11 @@ export function itemKey({ scaleKey, rootPc, stringSetKey, windowIndex }) {
  * on the fly — never pre-populated into storage. `items` records are only
  * created lazily, for keys actually drilled.
  */
-export function buildPool({ stringSetKey, includeAccidentals }) {
+export function buildPool({ stringSetKey, includeAccidentals, scaleKeys }) {
   const roots = includeAccidentals ? [...Array(12).keys()] : NATURAL_ROOTS;
   const windows = getPositionWindows();
   const pool = [];
-  for (const scaleKey of Object.keys(SCALES)) {
+  for (const scaleKey of scaleKeys ?? Object.keys(SCALES)) {
     for (const rootPc of roots) {
       for (const w of windows) {
         pool.push({ scaleKey, rootPc, stringSetKey, windowIndex: w.index, key: itemKey({ scaleKey, rootPc, stringSetKey, windowIndex: w.index }) });
